@@ -8,6 +8,7 @@
   gap: 0.5rem;
 }
 
+.narrative-text p { margin: 0.75rem 0; }
 .narrative-text p:first-child { margin-top: 0; }
 .narrative-text p:last-child  { margin-bottom: 0; }
 

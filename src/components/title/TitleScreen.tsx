@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SettingsIcon } from '@/ui/icons';
-import { useChatStore } from '@/stores/chatStore';
+import { listSaves } from '@/stores/saveManager';
 import './TitleScreen.css';
 
 interface TitleScreenProps {
@@ -15,28 +15,12 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 }) => {
   const [musicPlaying, setMusicPlaying] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const clearSave = useChatStore(s => s.clearSave);
-  const clearMessages = useChatStore(s => s.clearMessages);
-  const setGame = useChatStore(s => s.setGame);
-  const savedName = useChatStore(s => s.game.godName);
-  const savedPath = useChatStore(s => s.game.path);
 
-  const handleNewGame = () => {
-    if (hasSaveData) {
-      setShowConfirm(true);
-    } else {
-      onNewGame();
-    }
-  };
-
-  const confirmNewGame = () => {
-    clearSave();
-    clearMessages();
-    setGame({ gameStarted: false, path: null, godName: '', turnCount: 0 });
-    setShowConfirm(false);
-    onNewGame();
-  };
+  // Get most recent save info for the Continue button
+  const recentSave = hasSaveData ? listSaves()[0] : null;
+  const savedName = recentSave?.name || '';
+  const savedPath = recentSave?.path || null;
+  const saveCount = hasSaveData ? listSaves().length : 0;
   const audioRef = useRef<AudioContext | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const nodesRef = useRef<OscillatorNode[]>([]);
@@ -234,7 +218,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
         {/* Buttons */}
         <div className="title-buttons">
-          <button className="title-btn title-btn--primary" onClick={handleNewGame}>
+          <button className="title-btn title-btn--primary" onClick={onNewGame}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <path d="M12 2L14.5 8.5L21 9.5L16 14L17.5 21L12 17.5L6.5 21L8 14L3 9.5L9.5 8.5L12 2Z" />
             </svg>
@@ -251,6 +235,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 {savedName && (
                   <span className="title-btn-sub">
                     {savedName} ({savedPath === 'creator' ? 'Sáng Thế' : savedPath === 'god' ? 'Thần' : 'Phàm Nhân'})
+                    {saveCount > 1 && ` +${saveCount - 1}`}
                   </span>
                 )}
               </span>
@@ -263,24 +248,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </button>
         </div>
 
-        {/* New Game Confirmation */}
-        {showConfirm && (
-          <div className="title-confirm">
-            <div className="title-confirm-box glass-heavy">
-              <p className="title-confirm-text">
-                Dữ liệu hiện tại{savedName ? ` (${savedName})` : ''} sẽ bị xóa. Tiếp tục?
-              </p>
-              <div className="title-confirm-actions">
-                <button className="title-btn title-btn--ghost title-btn--sm" onClick={() => setShowConfirm(false)}>
-                  Hủy
-                </button>
-                <button className="title-btn title-btn--primary title-btn--sm" onClick={confirmNewGame}>
-                  Xóa & Bắt Đầu Mới
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* Version */}
         <span className="title-version">v0.1.0</span>

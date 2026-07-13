@@ -485,3 +485,915 @@
     gap: var(--space-2);
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   WORLD VIEW — Enhanced Universe Dashboard
+   ═══════════════════════════════════════════════════════ */
+
+.wv-root { gap: var(--space-5); }
+
+.wv-quick-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+/* Section */
+.wv-section { margin-top: var(--space-2); }
+
+.wv-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-3);
+}
+
+.wv-section-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.wv-section-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Stats grid */
+.wv-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: var(--space-2);
+}
+
+.wv-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease;
+}
+
+.wv-stat-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.wv-stat-value {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.wv-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Entity grid */
+.wv-entity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.wv-entity-card {
+  display: flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.wv-entity-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.wv-entity-stripe {
+  width: 3px;
+  flex-shrink: 0;
+}
+
+.wv-entity-body {
+  padding: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.wv-entity-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.wv-entity-tagline {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0 0 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wv-entity-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.wv-entity-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 3px;
+  letter-spacing: 0.01em;
+}
+
+/* Cosmic rules */
+.wv-cosmic-rules {
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+}
+
+.wv-cosmic-rules p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Timeline */
+.wv-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-left: 16px;
+  border-left: 2px solid rgba(255, 255, 255, 0.06);
+}
+
+.wv-timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  position: relative;
+}
+
+.wv-timeline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+  margin-left: -20px;
+}
+
+.wv-timeline-content { flex: 1; }
+
+.wv-timeline-turn {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wv-timeline-event {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 2px 0 0;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .wv-quick-row { grid-template-columns: 1fr; }
+  .wv-entity-grid { grid-template-columns: 1fr; }
+  .wv-stats-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESOURCE MECHANICS — Cost table, flow bars, karma, actions
+   ═══════════════════════════════════════════════════════ */
+
+.rm-cost-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space-2);
+}
+
+.rm-cost-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+
+.rm-cost-icon {
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: -0.05em;
+}
+
+.rm-cost-action { color: var(--text-secondary); }
+
+.rm-cost-value {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.rm-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+/* Flow bars */
+.rm-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rm-flow-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rm-flow-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rm-flow-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rm-flow-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.rm-warning {
+  color: #a0555a;
+  font-weight: 600;
+}
+
+/* Karma bar */
+.rm-karma { display: flex; flex-direction: column; gap: 6px; }
+
+.rm-karma-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.rm-karma-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.rm-karma-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 4px;
+  transition: all 0.4s ease;
+}
+
+.rm-karma-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Quick action buttons */
+.rm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.rm-action-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+  letter-spacing: -0.01em;
+}
+
+.rm-action-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rm-action-btn:active {
+  transform: scale(0.98);
+}
+
+/* ═══════════════════════════════════════════════════════
+   POWERS VIEW — Abilities, entities, studio grid
+   ═══════════════════════════════════════════════════════ */
+
+/* Abilities */
+.pv-abilities {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pv-ability-card {
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease;
+}
+
+.pv-ability-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.pv-ability-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.pv-ability-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  letter-spacing: -0.01em;
+}
+
+.pv-ability-level {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pv-ability-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0 0 6px;
+}
+
+.pv-ability-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pv-ability-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Game entities */
+.pv-entities {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-2);
+}
+
+.pv-entity-card {
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease;
+}
+
+.pv-entity-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.pv-entity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.pv-entity-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.pv-entity-type {
+  font-size: 9px;
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pv-entity-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0 0 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pv-entity-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10px;
+}
+
+.pv-entity-power {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+}
+
+.pv-entity-status {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pv-entity-loyalty {
+  font-weight: 500;
+}
+
+/* Studio entities grid */
+.pv-studio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2);
+}
+
+.pv-studio-card {
+  display: flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.pv-studio-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.pv-studio-stripe {
+  width: 3px;
+  flex-shrink: 0;
+}
+
+.pv-studio-body {
+  padding: 8px 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pv-studio-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.pv-studio-name {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pv-studio-cat {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.pv-studio-tagline {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 600px) {
+  .pv-entities { grid-template-columns: 1fr; }
+  .pv-studio-grid { grid-template-columns: 1fr; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RELATIONS VIEW — NPCs, entities, quests
+   ═══════════════════════════════════════════════════════ */
+
+/* NPC Grid */
+.rv-npc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3);
+}
+
+.rv-npc-card {
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s ease;
+}
+
+.rv-npc-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.rv-npc-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rv-npc-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.rv-npc-identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rv-npc-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.rv-npc-title {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.rv-npc-role {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rv-npc-dead {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(160, 85, 90, 0.15);
+  color: #a0555a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Affinity */
+.rv-affinity { display: flex; flex-direction: column; gap: 3px; }
+
+.rv-affinity-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.rv-affinity-stage { font-weight: 600; }
+.rv-affinity-value { font-weight: 500; }
+
+.rv-affinity-bar {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.rv-affinity-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.rv-affinity-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  transition: all 0.4s ease;
+}
+
+/* Loyalty */
+.rv-npc-loyalty {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.rv-npc-loyalty-label { color: var(--text-muted); }
+.rv-npc-loyalty-val { font-weight: 600; }
+
+/* Personality */
+.rv-npc-personality {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Notes (memories, promises) */
+.rv-npc-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rv-npc-note {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  line-height: 1.3;
+}
+
+.rv-npc-note--memory {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rv-npc-note--promise {
+  background: rgba(201, 168, 76, 0.08);
+  color: #c9a84c;
+  border: 1px solid rgba(201, 168, 76, 0.15);
+}
+
+/* Entity list */
+.rv-entity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rv-entity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+
+.rv-entity-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rv-entity-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.rv-entity-type {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rv-entity-loyalty {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Quest cards */
+.rv-quest-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rv-quest-card {
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rv-quest-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rv-quest-type {
+  font-size: 9px;
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.rv-quest-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  letter-spacing: -0.01em;
+}
+
+.rv-quest-pending {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(201, 168, 76, 0.1);
+  color: #c9a84c;
+}
+
+/* Objectives */
+.rv-quest-objectives {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rv-quest-obj {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.rv-quest-obj--done {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.rv-quest-check {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  font-size: 11px;
+}
+
+.rv-quest-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.rv-quest-progress {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.rv-quest-reward {
+  font-style: italic;
+}
+
+/* Completed quests */
+.rv-quest-completed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: rgba(106, 170, 114, 0.04);
+  border-radius: 4px;
+  border: 1px solid rgba(106, 170, 114, 0.08);
+}
+
+.rv-quest-completed--failed {
+  background: rgba(160, 85, 90, 0.04);
+  border-color: rgba(160, 85, 90, 0.08);
+}
+
+.rv-quest-status-icon {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rv-quest-title-sm {
+  flex: 1;
+  color: var(--text-secondary);
+}
+
+.rv-quest-result {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 600px) {
+  .rv-npc-grid { grid-template-columns: 1fr; }
+}

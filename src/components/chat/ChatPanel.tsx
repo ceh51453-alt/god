@@ -9,6 +9,8 @@ import { buildPrompt, estimatePromptTokens } from '@/engine/prompt/promptBuilder
 import { parseNarrativeTags } from '@/engine/narrative/tagParser';
 import { extractStudioCreations } from '@/engine/studio/studioSync';
 import { useStudioStore } from '@/components/studio/studioStore';
+import { runEnrich } from '@/engine/studio/enrichEngine';
+import { useEnrichStore } from '@/stores/enrichStore';
 import { NarrativeSegments } from './NarrativeTag';
 import { SendIcon, LoaderIcon, DivinePowerIcon } from '@/ui/icons';
 import { marked } from 'marked';
@@ -156,6 +158,14 @@ export const ChatPanel: React.FC = () => {
           setStreaming(false);
           setRetrying(null);
           scrollToBottom();
+
+          // ── Auto-Enrich: bổ sung fields cho entity trong Xưởng Sáng Thế ──
+          const enrichState = useEnrichStore.getState();
+          if (enrichState.enabled && enrichState.trigger === 'after-response') {
+            runEnrich(cleanText || stripped).catch(err =>
+              console.warn('[Enrich] Background error:', err)
+            );
+          }
         },
         onError: () => {
           setStreaming(false);
@@ -378,6 +388,9 @@ export const ChatPanel: React.FC = () => {
         )}
 
         <div ref={chatEndRef} />
+
+        {/* Enrich status indicator */}
+        <EnrichIndicator />
       </div>
 
       {/* Input */}
@@ -412,6 +425,31 @@ export const ChatPanel: React.FC = () => {
           )}
         </div>
       </div>
+    </div>
+  );
+};
+
+/* ── Enrich Status Indicator ── */
+const EnrichIndicator: React.FC = () => {
+  const status = useEnrichStore(s => s.status);
+  const message = useEnrichStore(s => s.statusMessage);
+
+  if (status === 'idle') return null;
+
+  return (
+    <div className={`enrich-indicator enrich-indicator--${status}`}>
+      {status === 'running' && <LoaderIcon size={12} color="var(--accent-primary)" />}
+      {status === 'done' && (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-success, #6aaa72)" strokeWidth="2.5">
+          <path d="M5 12l5 5L19 7" />
+        </svg>
+      )}
+      {status === 'error' && (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-danger, #a0555a)" strokeWidth="2.5">
+          <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
+        </svg>
+      )}
+      <span className="enrich-indicator-text">{message}</span>
     </div>
   );
 };

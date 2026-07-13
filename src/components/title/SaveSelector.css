@@ -1,0 +1,342 @@
+/* ═══════════════════════════════════════════════════════
+   SAVE SELECTOR — Multi-save slot picker
+   Glass overlay with staggered card animations
+   ═══════════════════════════════════════════════════════ */
+
+.save-selector-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 6, 8, 0.75);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.save-selector-overlay--visible {
+  opacity: 1;
+}
+
+/* ── Panel ── */
+.save-selector-panel {
+  width: 90%;
+  max-width: 480px;
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(16, 18, 28, 0.92);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transform: translateY(12px) scale(0.97);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.save-selector-overlay--visible .save-selector-panel {
+  transform: translateY(0) scale(1);
+}
+
+/* ── Header ── */
+.save-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.save-selector-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--color-ivory);
+  letter-spacing: var(--ls-wide);
+}
+
+.save-selector-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-out);
+}
+
+.save-selector-close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+}
+
+.save-selector-close:active {
+  transform: scale(0.94);
+}
+
+/* ── List ── */
+.save-selector-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.save-selector-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.save-selector-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+/* ── Empty State ── */
+.save-selector-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.save-selector-empty p {
+  font-size: var(--fs-sm);
+  max-width: unset;
+}
+
+.save-selector-empty-hint {
+  font-size: var(--fs-xs) !important;
+  opacity: 0.6;
+}
+
+/* ── Save Card ── */
+.save-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: default;
+  transition: all var(--duration-base) cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Staggered entrance */
+  opacity: 0;
+  transform: translateY(8px);
+  animation: saveCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--save-index, 0) * 80ms + 150ms);
+}
+
+.save-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+@keyframes saveCardIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Card Icon ── */
+.save-card-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--save-accent, #c9a84c) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--save-accent, #c9a84c) 15%, transparent);
+}
+
+/* ── Card Info ── */
+.save-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.save-card-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: var(--ls-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.save-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+.save-card-path {
+  opacity: 0.8;
+}
+
+.save-card-dot {
+  opacity: 0.3;
+  font-size: 8px;
+}
+
+/* ── Card Actions ── */
+.save-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.save-card-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px 12px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: var(--ls-wide);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-out);
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.save-card-btn--load {
+  background: color-mix(in srgb, var(--save-accent, #c9a84c) 10%, transparent);
+}
+
+.save-card-btn--load:hover {
+  background: color-mix(in srgb, var(--save-accent, #c9a84c) 20%, transparent);
+  transform: translateY(-1px);
+}
+
+.save-card-btn--load:active {
+  transform: scale(0.96);
+}
+
+.save-card-btn--trash {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+}
+
+.save-card-btn--trash:hover {
+  color: #a0555a;
+  background: rgba(160, 85, 90, 0.1);
+  border-color: rgba(160, 85, 90, 0.2);
+}
+
+.save-card-btn--trash:active {
+  transform: scale(0.92);
+}
+
+/* ── Inline Delete Confirmation ── */
+.save-card-confirm {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: rgba(12, 14, 22, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(160, 85, 90, 0.2);
+  z-index: 2;
+  animation: confirmFadeIn 0.2s ease-out;
+}
+
+.save-card-confirm span {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.save-card-confirm-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.save-card-btn--cancel {
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.save-card-btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.save-card-btn--delete {
+  color: #a0555a;
+  border: 1px solid rgba(160, 85, 90, 0.25);
+  background: rgba(160, 85, 90, 0.08);
+}
+
+.save-card-btn--delete:hover {
+  background: rgba(160, 85, 90, 0.18);
+  border-color: rgba(160, 85, 90, 0.4);
+}
+
+@keyframes confirmFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+  .save-selector-panel {
+    width: 95%;
+    max-height: 80vh;
+  }
+
+  .save-card {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .save-card-actions {
+    margin-left: auto;
+  }
+
+  .save-card-meta {
+    flex-wrap: wrap;
+  }
+}

@@ -8,6 +8,7 @@ import { applyPatches } from '@/engine/mvu/patchEngine';
 import { deriveAffinityStage } from '@/engine/mvu/schema';
 import { saveSnapshot, clearSnapshots, rollbackTo, exportSnapshots, importSnapshots } from '@/engine/mvu/snapshot';
 import { extractPatches } from '@/engine/mvu/extractor';
+import { saveSlot, loadSlot, deleteSlot, getActiveSlotId, setActiveSlotId, clearActiveSlotId, createSlot } from './saveManager';
 
 export interface ChatMessage {
   id: string;
@@ -48,6 +49,9 @@ interface ChatState {
   /** MVU State — single source of truth */
   statData: StatData;
 
+  /** Active save slot ID */
+  activeSlotId: string | null;
+
   showSettings: boolean;
   activeView: ViewId;
   showStatusPanel: boolean;
@@ -68,6 +72,7 @@ interface ChatState {
   setActiveView: (view: ViewId) => void;
   setShowStatusPanel: (show: boolean) => void;
   setPendingDecree: (text: string | null) => void;
+  setActiveSlot: (id: string | null) => void;
 
   // MVU Actions
   initStatData: (character: CharacterData, path: GamePath) => void;
@@ -77,37 +82,30 @@ interface ChatState {
 
   // Persistence
   saveToStorage: () => void;
-  loadFromStorage: () => boolean;
+  loadFromStorage: (slotId?: string) => boolean;
   clearSave: () => void;
 }
 
-const SAVE_KEY = 'godsim_save';
-
-function saveToLS(game: GameState, messages: ChatMessage[], statData: StatData) {
-  try {
-    const data = {
-      game,
-      messages: messages.filter(m => !m.streaming).slice(-200), // Keep last 200
-      statData,
-      snapshots: exportSnapshots(),
-      version: 2,
-    };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-  } catch { /* quota exceeded or blocked */ }
+function saveToActiveSlot(game: GameState, messages: ChatMessage[], statData: StatData) {
+  const slotId = useChatStore.getState().activeSlotId;
+  if (!slotId) return;
+  saveSlot(slotId, {
+    game,
+    messages,
+    statData,
+    snapshots: exportSnapshots(),
+    version: 2,
+  });
 }
 
-function loadFromLS(): { game: GameState; messages: ChatMessage[]; statData?: StatData } | null {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (!data?.game?.gameStarted) return null;
-    // Import snapshots if present
-    if (data.snapshots) {
-      importSnapshots(data.snapshots);
-    }
-    return data;
-  } catch { return null; }
+function loadFromSlot(slotId: string): { game: GameState; messages: ChatMessage[]; statData?: StatData } | null {
+  const data = loadSlot(slotId);
+  if (!data) return null;
+  // Import snapshots if present
+  if (data.snapshots) {
+    importSnapshots(data.snapshots as Parameters<typeof importSnapshots>[0]);
+  }
+  return data;
 }
 
 /** Initialize StatData from character creation data */
@@ -189,6 +187,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   },
 
   statData: StatDataSchema.parse({}),
+  activeSlotId: null,
 
   showSettings: false,
   activeView: 'chat',
@@ -205,7 +204,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }));
     setTimeout(() => {
       const s = get();
-      if (s.game.gameStarted) saveToLS(s.game, s.messages, s.statData);
+      if (s.game.gameStarted) saveToActiveSlot(s.game, s.messages, s.statData);
     }, 100);
   },
 
@@ -242,7 +241,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }));
     setTimeout(() => {
       const s = get();
-      if (s.game.gameStarted) saveToLS(s.game, s.messages, s.statData);
+      if (s.game.gameStarted) saveToActiveSlot(s.game, s.messages, s.statData);
     }, 100);
   },
 
@@ -250,6 +249,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   setActiveView: (view) => set({ activeView: view }),
   setShowStatusPanel: (show) => set({ showStatusPanel: show }),
   setPendingDecree: (text) => set({ pendingDecree: text }),
+  setActiveSlot: (id) => {
+    set({ activeSlotId: id });
+    if (id) setActiveSlotId(id);
+    else clearActiveSlotId();
+  },
 
   // ── MVU Actions ──
 
@@ -329,30 +333,35 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   saveToStorage: () => {
     const s = get();
-    saveToLS(s.game, s.messages, s.statData);
+    saveToActiveSlot(s.game, s.messages, s.statData);
   },
 
-  loadFromStorage: () => {
-    const data = loadFromLS();
+  loadFromStorage: (slotId?: string) => {
+    const id = slotId || getActiveSlotId();
+    if (!id) return false;
+    const data = loadFromSlot(id);
     if (!data) return false;
     const updates: Partial<ChatState> = {
       game: data.game,
       messages: data.messages,
+      activeSlotId: id,
     };
     if (data.statData) {
       try {
         updates.statData = StatDataSchema.parse(data.statData);
       } catch {
-        // Migration: parse what we can, fill defaults
         updates.statData = StatDataSchema.parse({});
       }
     }
+    setActiveSlotId(id);
     set(updates as ChatState);
     return true;
   },
 
   clearSave: () => {
-    localStorage.removeItem(SAVE_KEY);
+    const slotId = get().activeSlotId;
+    if (slotId) deleteSlot(slotId);
     clearSnapshots();
+    set({ activeSlotId: null });
   },
 }));

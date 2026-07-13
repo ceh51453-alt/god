@@ -3,9 +3,13 @@ import { TitleScreen } from '@/components/title/TitleScreen';
 import { PathSelection } from '@/components/title/PathSelection';
 import { CreationWizard } from '@/components/creation/CreationWizard';
 import { type CharacterData, type GamePath } from '@/components/creation/creationData';
+import { defaultCharacter } from '@/components/creation/creationData';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { ConnectionPanel } from '@/components/settings/ConnectionPanel';
+import { SaveSelector } from '@/components/title/SaveSelector';
 import { useChatStore } from '@/stores/chatStore';
+import { listSaves, createSlot, getActiveSlotId, migrateLegacySave } from '@/stores/saveManager';
+import { StatDataSchema } from '@/engine/mvu/schema';
 import './styles/global.css';
 
 type AppScreen = 'title' | 'path_select' | 'creation' | 'game';
@@ -14,15 +18,20 @@ const App: React.FC = () => {
   const [screen, setScreen] = useState<AppScreen>('title');
   const [selectedPath, setSelectedPath] = useState<GamePath>('creator');
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
+  const [showSaveSelector, setShowSaveSelector] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
 
-  const game = useChatStore(s => s.game);
   const setGame = useChatStore(s => s.setGame);
   const addMessage = useChatStore(s => s.addMessage);
   const loadFromStorage = useChatStore(s => s.loadFromStorage);
+  const clearMessages = useChatStore(s => s.clearMessages);
+  const setActiveSlot = useChatStore(s => s.setActiveSlot);
 
-  // Check for saved game on mount
-  const hasSaveData = useChatStore(s => s.game.gameStarted) || !!localStorage.getItem('godsim_save');
+  // Check for any saved games
+  const [hasSaveData, setHasSaveData] = useState(() => {
+    migrateLegacySave(); // migrate legacy save on first render
+    return listSaves().length > 0;
+  });
 
   // Smooth transition helper
   const transitionTo = useCallback((target: AppScreen) => {
@@ -33,13 +42,49 @@ const App: React.FC = () => {
     }, 300);
   }, []);
 
+  // ── Auto-restore active slot on mount (F5 / reload) ──
+  useEffect(() => {
+    const activeId = getActiveSlotId();
+    if (activeId) {
+      const loaded = loadFromStorage(activeId);
+      if (loaded) {
+        setScreen('game');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleNewGame = useCallback(() => {
+    // Reset in-memory state for new game without deleting existing saves
+    clearMessages();
+    setGame({
+      path: null,
+      godName: '',
+      gameStarted: false,
+      turnCount: 0,
+      character: { ...defaultCharacter },
+    });
+    setActiveSlot(null);
+    useChatStore.setState({ statData: StatDataSchema.parse({}) });
     transitionTo('path_select');
-  }, [transitionTo]);
+  }, [transitionTo, clearMessages, setGame, setActiveSlot]);
 
   const handleContinue = useCallback(() => {
-    const loaded = loadFromStorage();
+    const saves = listSaves();
+    if (saves.length === 1) {
+      // Single save — load directly
+      const loaded = loadFromStorage(saves[0].slotId);
+      if (loaded) transitionTo('game');
+    } else {
+      // Multiple saves — show selector
+      setShowSaveSelector(true);
+    }
+  }, [loadFromStorage, transitionTo]);
+
+  const handleLoadSave = useCallback((slotId: string) => {
+    const loaded = loadFromStorage(slotId);
     if (loaded) {
+      setShowSaveSelector(false);
       transitionTo('game');
     }
   }, [loadFromStorage, transitionTo]);
@@ -54,9 +99,14 @@ const App: React.FC = () => {
   }, [transitionTo]);
 
   const handleCreationComplete = useCallback((char: CharacterData) => {
+    // Create a new save slot
+    const name = char.name || (char.path === 'creator' ? 'Sáng Thế Thần' : char.path === 'god' ? 'Thần' : 'Phàm Nhân');
+    const slotId = createSlot(name, char.path);
+    setActiveSlot(slotId);
+
     setGame({
       path: char.path,
-      godName: char.name || (char.path === 'creator' ? 'Sáng Thế Thần' : char.path === 'god' ? 'Thần' : 'Phàm Nhân'),
+      godName: name,
       gameStarted: true,
       character: char,
     });
@@ -65,8 +115,15 @@ const App: React.FC = () => {
     const prompt = buildSystemPrompt(char);
     addMessage({ role: 'system', content: prompt });
 
+    setHasSaveData(true);
     transitionTo('game');
-  }, [setGame, addMessage, transitionTo]);
+  }, [setGame, addMessage, transitionTo, setActiveSlot]);
+
+  const handleBackToTitle = useCallback(() => {
+    transitionTo('title');
+    // Refresh save data status
+    setTimeout(() => setHasSaveData(listSaves().length > 0), 350);
+  }, [transitionTo]);
 
   return (
     <div className={`app-root ${transitioning ? 'app-root--fading' : ''}`}>
@@ -95,7 +152,18 @@ const App: React.FC = () => {
       )}
 
       {screen === 'game' && (
-        <GameLayout onBackToTitle={() => transitionTo('title')} />
+        <GameLayout onBackToTitle={handleBackToTitle} />
+      )}
+
+      {/* Save selector overlay */}
+      {showSaveSelector && (
+        <SaveSelector
+          onLoad={handleLoadSave}
+          onClose={() => {
+            setShowSaveSelector(false);
+            setHasSaveData(listSaves().length > 0);
+          }}
+        />
       )}
 
       {/* Settings overlay — works from any screen */}

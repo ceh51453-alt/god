@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
@@ -90,6 +90,9 @@ export const StatusPanel: React.FC<Props> = ({ fullPage }) => {
           ))}
         </div>
       </div>
+
+      {/* Resource Mechanics — Full page only */}
+      {fullPage && <ResourceMechanics path={path} resources={res} pathAccent={pathAccent} />}
 
       {/* Derived meters */}
       {meters.length > 0 && (
@@ -186,3 +189,166 @@ const InfoItem: React.FC<{ label: string; value: string }> = ({ label, value }) 
     <span className="sp-info-value">{value}</span>
   </div>
 );
+
+/* ═══════════════════════════════════════════════════════
+   RESOURCE MECHANICS — Chi phí & cơ chế tài nguyên
+   ═══════════════════════════════════════════════════════ */
+
+interface ResourceMechanicsProps {
+  path: GamePath;
+  resources: { power: number; followers: number; faith: number; wealth: number; karma: number; progress: number };
+  pathAccent: string;
+}
+
+const CREATOR_COSTS = [
+  { action: 'Tinh chỉnh nhỏ', cost: '10 — 30', icon: '~' },
+  { action: 'Tạo loài / sinh mệnh', cost: '50 — 150', icon: '+' },
+  { action: 'Tạo thế giới / quy luật', cost: '200 — 500', icon: '++' },
+  { action: 'Tạo vũ trụ / vị thần', cost: '600 — 1500', icon: '+++' },
+];
+
+const GOD_COSTS = [
+  { action: 'Phép nhỏ / ban phúc', cost: '20 — 50', icon: '~' },
+  { action: 'Kỳ tích / phép lạ', cost: '80 — 200', icon: '+' },
+  { action: 'Can thiệp thần giới', cost: '150 — 400', icon: '++' },
+  { action: 'Đại chiến / thiên phạt', cost: '300 — 800', icon: '+++' },
+];
+
+const MORTAL_COSTS = [
+  { action: 'Tu luyện / rèn luyện', cost: '5 — 20', icon: '~' },
+  { action: 'Thi triển pháp thuật', cost: '20 — 80', icon: '+' },
+  { action: 'Đột phá cảnh giới', cost: '50 — 200', icon: '++' },
+  { action: 'Triệu hồi / đại pháp', cost: '150 — 500', icon: '+++' },
+];
+
+const QUICK_ACTIONS: Record<GamePath, { label: string; prompt: string }[]> = {
+  creator: [
+    { label: 'Hấp Thu Năng Lượng', prompt: 'Ta tĩnh tâm, hấp thu năng lượng từ hư vô để hồi phục quyền năng.' },
+    { label: 'Quan Sát Vũ Trụ', prompt: 'Ta dùng thần nhãn quan sát toàn bộ vũ trụ, tìm kiếm điều bất thường.' },
+  ],
+  god: [
+    { label: 'Hiển Linh', prompt: 'Ta hiện thân trước tín đồ, ban phúc lành và gia tăng tín ngưỡng.' },
+    { label: 'Thu Nạp Tín Ngưỡng', prompt: 'Ta mở đền thờ, thu nạp tín ngưỡng từ phàm nhân để tăng thần lực.' },
+  ],
+  mortal: [
+    { label: 'Thiền Định Tu Luyện', prompt: 'Ta tĩnh tọa tu luyện, vận chuyển nội lực, cố gắng tích lũy linh khí.' },
+    { label: 'Rèn Luyện Thân Thể', prompt: 'Ta rèn luyện gân cốt, luyện võ tập kiếm để tăng cường thể phách.' },
+  ],
+};
+
+const ResourceMechanics: React.FC<ResourceMechanicsProps> = ({ path, resources, pathAccent }) => {
+  const addMessage = useChatStore(s => s.addMessage);
+
+  const costs = path === 'creator' ? CREATOR_COSTS : path === 'god' ? GOD_COSTS : MORTAL_COSTS;
+  const actions = QUICK_ACTIONS[path] || [];
+
+  const handleQuickAction = useCallback((prompt: string) => {
+    addMessage({ role: 'user', content: prompt });
+  }, [addMessage]);
+
+  return (
+    <>
+      {/* Cost Reference */}
+      <div className="sp-section">
+        <h5 className="sp-section-title">Chi Phí Quyền Năng</h5>
+        <div className="rm-cost-table">
+          {costs.map(c => (
+            <div key={c.action} className="rm-cost-row">
+              <span className="rm-cost-icon" style={{ color: pathAccent }}>{c.icon}</span>
+              <span className="rm-cost-action">{c.action}</span>
+              <span className="rm-cost-value">{c.cost}</span>
+            </div>
+          ))}
+        </div>
+        <span className="rm-hint">
+          Hiện tại: <strong style={{ color: pathAccent }}>{resources.power.toLocaleString()}</strong> quyền năng
+        </span>
+      </div>
+
+      {/* Power Flow */}
+      <div className="sp-section">
+        <h5 className="sp-section-title">Dòng Chảy Năng Lượng</h5>
+        <div className="rm-flow">
+          <div className="rm-flow-item">
+            <div className="rm-flow-bar">
+              <div
+                className="rm-flow-fill"
+                style={{
+                  width: `${Math.min(100, (resources.power / 1000) * 100)}%`,
+                  background: pathAccent,
+                }}
+              />
+            </div>
+            <span className="rm-flow-label">Quyền Năng ({resources.power})</span>
+          </div>
+          {(path === 'god' || resources.faith > 0) && (
+            <div className="rm-flow-item">
+              <div className="rm-flow-bar">
+                <div
+                  className="rm-flow-fill"
+                  style={{
+                    width: `${resources.faith}%`,
+                    background: resources.faith < 20 ? '#a0555a' : pathAccent,
+                  }}
+                />
+              </div>
+              <span className="rm-flow-label">
+                Tín Ngưỡng ({resources.faith}/100)
+                {resources.faith < 20 && <span className="rm-warning"> — Suy Giảm!</span>}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Karma Impact */}
+      {resources.karma !== 0 && (
+        <div className="sp-section">
+          <h5 className="sp-section-title">Nghiệp Lực</h5>
+          <div className="rm-karma">
+            <div className="rm-karma-bar">
+              <div className="rm-karma-center" />
+              <div
+                className="rm-karma-fill"
+                style={{
+                  width: `${Math.abs(resources.karma) / 2}%`,
+                  left: resources.karma >= 0 ? '50%' : `${50 - Math.abs(resources.karma) / 2}%`,
+                  background: resources.karma >= 0 ? '#6aaa72' : '#a0555a',
+                }}
+              />
+            </div>
+            <div className="rm-karma-labels">
+              <span style={{ color: '#a0555a' }}>Ác</span>
+              <span style={{ color: 'var(--text-muted)' }}>{resources.karma > 0 ? '+' : ''}{resources.karma}</span>
+              <span style={{ color: '#6aaa72' }}>Thiện</span>
+            </div>
+            <span className="rm-hint">
+              {resources.karma > 30 ? 'Thiện nghiệp mạnh — NPC có xu hướng tin tưởng, kẻ ác tránh xa.' :
+               resources.karma < -30 ? 'Ác nghiệp nặng — NPC e sợ, bóng tối dễ theo.' :
+               'Nghiệp trung hòa — chưa ảnh hưởng rõ rệt.'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      {actions.length > 0 && (
+        <div className="sp-section">
+          <h5 className="sp-section-title">Hành Động Nhanh</h5>
+          <div className="rm-actions">
+            {actions.map(a => (
+              <button
+                key={a.label}
+                className="rm-action-btn"
+                onClick={() => handleQuickAction(a.prompt)}
+                style={{ borderColor: `${pathAccent}30`, color: pathAccent }}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useConnectionStore, type ProviderPreset } from '@/stores/connectionStore';
 import { usePresetStore } from '@/stores/presetStore';
+import { useEnrichStore, type EnrichProxySource, type EnrichTrigger, type EnrichSampling, DEFAULT_SAMPLING } from '@/stores/enrichStore';
 import { useShallow } from 'zustand/react/shallow';
 import { scanModels, testConnection, maskKey } from '@/engine/api/apiClient';
 import {
@@ -63,7 +64,7 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
   })));
   const [showKeys, setShowKeys] = useState(false);
   const [modelFilter, setModelFilter] = useState('');
-  const [activeSection, setActiveSection] = useState<'connection' | 'proxy' | 'sampling' | 'profiles' | 'preset'>('connection');
+  const [activeSection, setActiveSection] = useState<'connection' | 'proxy' | 'sampling' | 'profiles' | 'preset' | 'enrich' | 'enrich-params'>('connection');
   const [scanMsg, setScanMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const handleScanModels = useCallback(async () => {
@@ -241,13 +242,13 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
 
       {/* Tab Nav */}
       <div className="conn-tabs">
-        {(['connection', 'proxy', 'sampling', 'profiles', 'preset'] as const).map(tab => (
+        {(['connection', 'proxy', 'sampling', 'profiles', 'preset', 'enrich', 'enrich-params'] as const).map(tab => (
           <button
             key={tab}
             className={`conn-tab ${activeSection === tab ? 'conn-tab--active' : ''}`}
             onClick={() => setActiveSection(tab)}
           >
-            {tab === 'connection' ? 'Kết Nối' : tab === 'proxy' ? 'Proxy' : tab === 'sampling' ? 'Tham Số' : tab === 'profiles' ? 'Hồ Sơ' : 'Preset'}
+            {tab === 'connection' ? 'Kết Nối' : tab === 'proxy' ? 'Proxy' : tab === 'sampling' ? 'Tham Số' : tab === 'profiles' ? 'Hồ Sơ' : tab === 'preset' ? 'Preset' : tab === 'enrich' ? 'AI Kết Nối' : 'AI Tham Số'}
           </button>
         ))}
       </div>
@@ -528,6 +529,282 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
             )}
           </div>
         )}
+
+        {/* ── ENRICH CONNECTION TAB ── */}
+        {activeSection === 'enrich' && <EnrichConnectionSection />}
+
+        {/* ── ENRICH PARAMS TAB ── */}
+        {activeSection === 'enrich-params' && <EnrichParamsSection />}
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════
+   ENRICH TABS — AI Kết Nối + AI Tham Số
+   ═══════════════════════════════════════════════════════ */
+
+const ENRICH_SAMPLING_PARAMS = [
+  { key: 'temperature', label: 'Temperature', min: 0, max: 2, step: 0.05, default: 0.7 },
+  { key: 'top_p', label: 'Top P', min: 0, max: 1, step: 0.05, default: 0.95 },
+  { key: 'max_tokens', label: 'Max Tokens', min: 100, max: 8000, step: 100, default: 2000 },
+  { key: 'frequency_penalty', label: 'Frequency Penalty', min: -2, max: 2, step: 0.1, default: 0 },
+  { key: 'presence_penalty', label: 'Presence Penalty', min: -2, max: 2, step: 0.1, default: 0 },
+];
+
+/* ── Tab 1: Enrich Kết Nối ── */
+const EnrichConnectionSection: React.FC = () => {
+  const [showKeys, setShowKeys] = useState(false);
+  const {
+    enabled, trigger, proxySource,
+    customBaseUrl, customApiKey, customModel,
+    customProxyUrl, customProxyPassword,
+    status, statusMessage, enrichLog,
+    setEnabled, setTrigger, setProxySource, setField, clearLog,
+  } = useEnrichStore(useShallow(s => ({
+    enabled: s.enabled,
+    trigger: s.trigger,
+    proxySource: s.proxySource,
+    customBaseUrl: s.customBaseUrl,
+    customApiKey: s.customApiKey,
+    customModel: s.customModel,
+    customProxyUrl: s.customProxyUrl,
+    customProxyPassword: s.customProxyPassword,
+    status: s.status,
+    statusMessage: s.statusMessage,
+    enrichLog: s.enrichLog,
+    setEnabled: s.setEnabled,
+    setTrigger: s.setTrigger,
+    setProxySource: s.setProxySource,
+    setField: s.setField,
+    clearLog: s.clearLog,
+  })));
+
+  return (
+    <div className="conn-section animate-fadeIn">
+      {/* Toggle */}
+      <div className="param-row">
+        <label className="input-label" style={{ flex: 1 }}>Bật AI Tự Động Bổ Sung</label>
+        <button
+          className={`toggle ${enabled ? 'toggle--on' : ''}`}
+          onClick={() => setEnabled(!enabled)}
+        >
+          <div className="toggle-thumb" />
+        </button>
+      </div>
+
+      {/* Trigger mode */}
+      <div className="input-group">
+        <label className="input-label">Chế Độ Kích Hoạt</label>
+        <select
+          className="input"
+          value={trigger}
+          onChange={e => setTrigger(e.target.value as EnrichTrigger)}
+        >
+          <option value="after-response">Sau mỗi phản hồi AI</option>
+          <option value="manual">Bấm tay (nút trong chat)</option>
+        </select>
+      </div>
+
+      {/* Source */}
+      <div className="input-group">
+        <label className="input-label">Nguồn Kết Nối</label>
+        <select
+          className="input"
+          value={proxySource}
+          onChange={e => setProxySource(e.target.value as EnrichProxySource)}
+        >
+          <option value="default">Dùng cài đặt hiện tại (Proxy/API chính)</option>
+          <option value="custom">Proxy / API riêng cho Enrich</option>
+        </select>
+        <span className="input-hint" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          {proxySource === 'default'
+            ? 'Enrich sẽ dùng cùng kết nối với chat để gọi AI.'
+            : 'Bạn có thể dùng proxy/API riêng cho Enrich (để tránh ảnh hưởng rate limit).'}
+        </span>
+      </div>
+
+      {proxySource === 'custom' && (
+        <>
+          <hr className="conn-divider" style={{ margin: '16px 0', borderColor: 'var(--border-light)' }} />
+
+          {/* Base URL */}
+          <div className="input-group">
+            <label className="input-label">Base URL</label>
+            <input
+              className="input"
+              type="url"
+              placeholder="https://api.openai.com/v1"
+              value={customBaseUrl}
+              onChange={e => setField({ customBaseUrl: e.target.value })}
+            />
+          </div>
+
+          {/* API Key */}
+          <div className="input-group">
+            <label className="input-label">API Key</label>
+            <div className="input-with-action">
+              <input
+                className="input"
+                type={showKeys ? 'text' : 'password'}
+                placeholder="sk-..."
+                value={customApiKey}
+                onChange={e => setField({ customApiKey: e.target.value })}
+              />
+              <div className="input-actions">
+                <button className="btn btn-icon btn-sm" onClick={() => setShowKeys(!showKeys)} title={showKeys ? 'Hide' : 'Show'}>
+                  {showKeys ? <HideIcon size={14} /> : <ShowIcon size={14} />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Model */}
+          <div className="input-group">
+            <label className="input-label">Model</label>
+            <input
+              className="input"
+              placeholder="gpt-4o-mini"
+              value={customModel}
+              onChange={e => setField({ customModel: e.target.value })}
+            />
+          </div>
+
+          <hr className="conn-divider" style={{ margin: '16px 0', borderColor: 'var(--border-light)' }} />
+
+          {/* Proxy URL */}
+          <div className="input-group">
+            <label className="input-label">URL Proxy (tùy chọn)</label>
+            <input
+              className="input"
+              type="url"
+              placeholder="https://proxy-cua-ban.com"
+              value={customProxyUrl}
+              onChange={e => setField({ customProxyUrl: e.target.value })}
+            />
+            <span className="input-hint" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Nếu điền, yêu cầu Enrich sẽ đi qua proxy này.</span>
+          </div>
+
+          {/* Proxy Password */}
+          <div className="input-group">
+            <label className="input-label">Mật Khẩu Proxy</label>
+            <div className="input-with-action">
+              <input
+                className="input"
+                type={showKeys ? 'text' : 'password'}
+                placeholder="Proxy password"
+                value={customProxyPassword}
+                onChange={e => setField({ customProxyPassword: e.target.value })}
+              />
+              <div className="input-actions">
+                <button className="btn btn-icon btn-sm" onClick={() => setShowKeys(!showKeys)} title={showKeys ? 'Hide' : 'Show'}>
+                  {showKeys ? <HideIcon size={14} /> : <ShowIcon size={14} />}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Status */}
+      {status !== 'idle' && (
+        <div className={`enrich-status enrich-status--${status}`}>
+          {statusMessage}
+        </div>
+      )}
+
+      {/* Activity Log */}
+      {enrichLog.length > 0 && (
+        <>
+          <hr className="conn-divider" style={{ margin: '16px 0', borderColor: 'var(--border-light)' }} />
+          <div className="input-group">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className="input-label" style={{ margin: 0 }}>Lịch Sử Bổ Sung ({enrichLog.length})</label>
+              <button
+                className="btn btn-sm"
+                onClick={clearLog}
+                style={{ fontSize: '10px', padding: '2px 8px' }}
+              >
+                Xóa
+              </button>
+            </div>
+            <div className="enrich-log">
+              {enrichLog.slice(0, 20).map((entry, i) => (
+                <div key={i} className="enrich-log-entry">
+                  <span className="enrich-log-name">{entry.entityName}</span>
+                  <span className="enrich-log-meta">
+                    {entry.category} — {entry.fieldsUpdated.length} fields
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+/* ── Tab 2: Enrich Tham Số ── */
+const EnrichParamsSection: React.FC = () => {
+  const { sampling, setSampling, resetSampling } = useEnrichStore(useShallow(s => ({
+    sampling: s.sampling,
+    setSampling: s.setSampling,
+    resetSampling: s.resetSampling,
+  })));
+
+  return (
+    <div className="conn-section animate-fadeIn">
+      <span className="input-hint" style={{ display: 'block', marginBottom: '12px', lineHeight: 1.5 }}>
+        Tham số lấy mẫu cho AI Enrich — điều chỉnh độ sáng tạo và độ dài của dữ liệu bổ sung.
+      </span>
+
+      {ENRICH_SAMPLING_PARAMS.map(param => {
+        const val = sampling[param.key as keyof EnrichSampling];
+        return (
+          <div className="param-row" key={param.key}>
+            <div className="param-header">
+              <label className="input-label">{param.label}</label>
+              <input
+                className="input param-number"
+                type="number"
+                min={param.min}
+                max={param.max}
+                step={param.step}
+                value={val}
+                onChange={e => setSampling({ [param.key]: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <input
+              className="slider"
+              type="range"
+              min={param.min}
+              max={param.max}
+              step={param.step}
+              value={val}
+              onChange={e => setSampling({ [param.key]: parseFloat(e.target.value) || 0 })}
+            />
+            <button
+              className="btn btn-icon btn-sm param-reset"
+              title="Reset to default"
+              onClick={() => setSampling({ [param.key]: param.default })}
+            >
+              <RefreshIcon size={12} />
+            </button>
+          </div>
+        );
+      })}
+
+      {/* Reset all */}
+      <div style={{ marginTop: '12px' }}>
+        <button
+          className="btn btn-sm"
+          onClick={resetSampling}
+          style={{ fontSize: '11px' }}
+        >
+          <RefreshIcon size={12} />
+          &nbsp;Reset Tất Cả Về Mặc Định
+        </button>
       </div>
     </div>
   );

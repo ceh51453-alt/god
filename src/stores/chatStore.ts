@@ -95,7 +95,8 @@ function saveToActiveSlot(game: GameState, messages: ChatMessage[], statData: St
   if (!slotId) return;
   saveSlot(slotId, {
     game,
-    messages,
+    // Bỏ placeholder đang stream để reload giữa chừng không để lại bong bóng rỗng
+    messages: messages.filter(m => !m.streaming),
     statData,
     snapshots: exportSnapshots(),
     version: 2,
@@ -213,21 +214,26 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }, 100);
   },
 
-  updateLastAssistantMessage: (content, thinkingText) => set(state => {
-    const msgs = [...state.messages];
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs[i].role === 'assistant') {
-        msgs[i] = {
-          ...msgs[i],
-          content,
-          streaming: false,
-          ...(thinkingText != null && { thinkingText }),
-        };
-        break;
+  updateLastAssistantMessage: (content, thinkingText) => {
+    set(state => {
+      const msgs = [...state.messages];
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant') {
+          msgs[i] = {
+            ...msgs[i],
+            content,
+            streaming: false,
+            ...(thinkingText != null && { thinkingText }),
+          };
+          break;
+        }
       }
-    }
-    return { messages: msgs };
-  }),
+      return { messages: msgs };
+    });
+    // Persist the finalized/aborted message so a reload keeps it
+    const s = get();
+    if (s.game.gameStarted) saveToActiveSlot(s.game, s.messages, s.statData);
+  },
 
   setStreaming: (streaming, text = '') => set({
     isStreaming: streaming,
@@ -337,6 +343,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           game: { ...state.game, turnCount: newState._turnCount },
         };
       });
+    }
+
+    // Persist the finalized turn — fix: patches path never saved,
+    // so F5 dropped the latest turn's AI response.
+    const finalState = get();
+    if (finalState.game.gameStarted) {
+      saveToActiveSlot(finalState.game, finalState.messages, finalState.statData);
     }
 
     return { cleanText, patches };

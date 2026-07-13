@@ -1,0 +1,128 @@
+/* ═══════════════════════════════════════════════════════
+   GOD SIMULATOR — DESIGN TOKENS
+   Premium glassmorphism + desaturated palette
+   ═══════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Base Palette (desaturated, cinematic) ── */
+  --color-void:        #0a0b10;
+  --color-abyss:       #0f1117;
+  --color-obsidian:    #161822;
+  --color-slate:       #1e2030;
+  --color-stone:       #282a3a;
+  --color-ash:         #3a3d52;
+  --color-mist:        #5a5e7a;
+  --color-silver:      #8b90a8;
+  --color-cloud:       #b4b8cc;
+  --color-ivory:       #dcdfe8;
+  --color-parchment:   #eceef4;
+
+  /* ── Accent (muted divine gold) ── */
+  --accent-primary:    #c9a84c;
+  --accent-primary-soft: rgba(201, 168, 76, 0.15);
+  --accent-primary-glow: rgba(201, 168, 76, 0.25);
+  --accent-secondary:  #7b8fa8;
+  --accent-danger:     #b85450;
+  --accent-danger-soft: rgba(184, 84, 80, 0.15);
+  --accent-success:    #5a9e6f;
+  --accent-success-soft: rgba(90, 158, 111, 0.15);
+  --accent-info:       #5b8fb9;
+
+  /* ── Domain Accents (swap via JS class) ── */
+  --domain-war:        #c75b5b;
+  --domain-wisdom:     #7b9ec7;
+  --domain-nature:     #6aaa72;
+  --domain-chaos:      #9b6bbf;
+  --domain-light:      #d4b84a;
+  --domain-darkness:   #6b6b8f;
+  --domain-sea:        #4a8fa8;
+  --domain-fire:       #d47a3a;
+  --domain-death:      #7a7a7a;
+  --domain-creation:   #a8844a;
+
+  /* ── Glass ── */
+  --glass-bg:          rgba(22, 24, 34, 0.72);
+  --glass-bg-light:    rgba(30, 32, 48, 0.60);
+  --glass-bg-heavy:    rgba(15, 17, 23, 0.88);
+  --glass-border:      rgba(255, 255, 255, 0.08);
+  --glass-border-light: rgba(255, 255, 255, 0.12);
+  --glass-border-accent: rgba(201, 168, 76, 0.18);
+  --glass-shadow:      0 8px 32px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --glass-shadow-sm:   0 2px 12px rgba(0, 0, 0, 0.25);
+  --glass-inner:       inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --blur-strength:     16px;
+  --blur-heavy:        24px;
+
+  /* ── Typography ── */
+  --font-display:      'Geist', system-ui, -apple-system, sans-serif;
+  --font-body:         'Outfit', system-ui, -apple-system, sans-serif;
+  --font-mono:         'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-primary:      var(--color-ivory);
+  --text-secondary:    var(--color-silver);
+  --text-muted:        var(--color-mist);
+  --text-soft:         var(--color-cloud);
+  --text-accent:       var(--accent-primary);
+
+  --fs-xs:   0.75rem;
+  --fs-sm:   0.875rem;
+  --fs-base: 1rem;
+  --fs-lg:   1.125rem;
+  --fs-xl:   1.25rem;
+  --fs-2xl:  1.5rem;
+  --fs-3xl:  1.875rem;
+  --fs-4xl:  2.25rem;
+  --fs-5xl:  3rem;
+
+  --lh-tight:    1.1;
+  --lh-snug:     1.25;
+  --lh-normal:   1.5;
+  --lh-relaxed:  1.625;
+
+  --ls-tight:    -0.02em;
+  --ls-normal:   0;
+  --ls-wide:     0.02em;
+  --ls-wider:    0.05em;
+
+  /* ── Spacing ── */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* ── Radius ── */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* ── Transitions ── */
+  --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-bounce:  cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth:  cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+
+  /* ── Z-Index Scale ── */
+  --z-base:     1;
+  --z-dropdown: 10;
+  --z-sticky:   20;
+  --z-modal:    50;
+  --z-toast:    60;
+  --z-tooltip:  70;
+
+  /* ── Gradients ── */
+  --gradient-base: linear-gradient(145deg, var(--color-abyss) 0%, var(--color-obsidian) 50%, var(--color-slate) 100%);
+  --gradient-divine: linear-gradient(135deg, rgba(201, 168, 76, 0.08) 0%, rgba(123, 143, 168, 0.05) 100%);
+  --gradient-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 100%);
+}

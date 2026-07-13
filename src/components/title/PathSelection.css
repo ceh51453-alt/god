@@ -1,0 +1,283 @@
+/* ═══════════════════════════════════════════════════════
+   PATH SELECTION — Choose your path screen
+   ═══════════════════════════════════════════════════════ */
+
+.path-screen {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.path-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-4);
+  width: 100%;
+  max-width: 1100px;
+}
+
+/* ── Header ── */
+.path-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  position: relative;
+}
+
+.path-back-btn {
+  position: absolute;
+  left: -60px;
+  top: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 24, 34, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-out);
+}
+
+.path-back-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--glass-border-light);
+  transform: translateX(-2px);
+}
+
+.path-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: var(--ls-tight);
+}
+
+.path-subtitle {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  letter-spacing: var(--ls-wide);
+  max-width: unset;
+}
+
+/* ── Cards Grid ── */
+.path-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+  width: 100%;
+}
+
+.path-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-8) var(--space-5) var(--space-6);
+  background: rgba(22, 24, 34, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  transition: all 0.4s var(--ease-out);
+  text-align: center;
+  overflow: hidden;
+
+  /* Staggered entrance */
+  animation: pathCardEnter 0.6s var(--ease-out) both;
+  animation-delay: var(--path-delay);
+}
+
+@keyframes pathCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.path-card-glow {
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, var(--path-accent) 0%, transparent 70%);
+  opacity: 0;
+  filter: blur(60px);
+  transition: opacity 0.5s var(--ease-out);
+  pointer-events: none;
+}
+
+.path-card:hover {
+  border-color: color-mix(in srgb, var(--path-accent) 30%, transparent);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 60px color-mix(in srgb, var(--path-accent) 8%, transparent);
+}
+
+.path-card:hover .path-card-glow {
+  opacity: 0.08;
+}
+
+.path-card--selected {
+  border-color: var(--path-accent);
+  transform: scale(1.02);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--path-accent) 20%, transparent);
+}
+
+.path-card--selected .path-card-glow {
+  opacity: 0.15;
+}
+
+/* ── Card Icon ── */
+.path-card-icon {
+  flex-shrink: 0;
+  transition: transform 0.4s var(--ease-out);
+}
+
+.path-card:hover .path-card-icon {
+  transform: scale(1.08);
+}
+
+/* ── Card Info ── */
+.path-card-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.path-card-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: var(--ls-tight);
+}
+
+.path-card-en {
+  font-family: var(--font-body);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-wider);
+}
+
+.path-card-desc {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: var(--lh-normal);
+  max-width: unset;
+}
+
+.path-card-divider {
+  width: 60px;
+  height: 1px;
+  opacity: 0.3;
+  margin: var(--space-1) 0;
+}
+
+.path-card-detail {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: var(--lh-relaxed);
+  max-width: 280px;
+}
+
+/* ── Select CTA ── */
+.path-card-select {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-wider);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.3s var(--ease-out);
+}
+
+.path-card:hover .path-card-select {
+  opacity: 1;
+  transform: translateY(0);
+  color: var(--path-accent);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .path-cards {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+    gap: var(--space-4);
+  }
+
+  .path-card {
+    flex-direction: row;
+    text-align: left;
+    padding: var(--space-5);
+    gap: var(--space-4);
+  }
+
+  .path-card-info {
+    align-items: flex-start;
+  }
+
+  .path-card-icon svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .path-card-detail {
+    max-width: unset;
+  }
+
+  .path-card-select {
+    display: none;
+  }
+
+  .path-back-btn {
+    position: relative;
+    left: 0;
+    top: 0;
+    align-self: flex-start;
+    margin-bottom: var(--space-2);
+  }
+
+  .path-content {
+    gap: var(--space-5);
+  }
+}
+
+@media (max-width: 480px) {
+  .path-card-icon svg {
+    width: 40px;
+    height: 40px;
+  }
+
+  .path-card {
+    padding: var(--space-4);
+  }
+}

@@ -11,8 +11,9 @@ export type CategoryId =
   | 'material'   // Nguyên Tố & Vật Liệu
   | 'power'      // Hệ Thống Sức Mạnh
   | 'species'    // Sinh Vật & Tiến Hóa
-  | 'artifact'   // Tạo Vật & Trang Bị
-  | 'faith';     // Tín Ngưỡng
+  | 'artifact'   // Tạo Vật & Kiến Tạo
+  | 'faith'      // Tín Ngưỡng
+  | 'deity';     // Thần Linh & Nhân Vật
 
 export type FieldType =
   | 'text'       // 1 dòng
@@ -481,74 +482,204 @@ export const CATEGORIES: CategoryDef[] = [
     ],
   },
 
-  /* ───────────── 6. TẠO VẬT & TRANG BỊ ───────────── */
+  /* ───────────── 6. TẠO VẬT & KIẾN TẠO ───────────── */
   {
     id: 'artifact',
     name: 'Tạo Vật',
-    plural: 'Tạo Vật & Trang Bị',
+    plural: 'Tạo Vật & Kiến Tạo',
     glyph: 'artifact',
     accent: '#c9a84c',
-    tagline: 'Rèn thần binh, pháp bảo, thánh khí — từ vật liệu tới phụ phép tinh vi.',
+    tagline: 'Kiến tạo mọi thực thể — từ thần binh tới thiên cung, từ quy luật hiện hình tới sự sống nhân tạo.',
     nameLabel: 'Tên tạo vật',
-    namePlaceholder: 'vd: Hỗn Độn Chung, Thí Thần Kiếm, Bất Tử Giáp...',
-    decreeNoun: 'một TẠO VẬT / THẦN KHÍ',
+    namePlaceholder: 'vd: Thiên Đình, Bánh Xe Luân Hồi, Mặt Trời Đầu Tiên, Thí Thần Kiếm...',
+    decreeNoun: 'một TẠO VẬT VĨ ĐẠI',
     fields: [
-      { id: 'tagline', label: 'Bản chất', type: 'text', full: true },
-      { id: 'type', label: 'Loại trang bị', type: 'select', options: [
-        { value: 'Vũ Khí' }, { value: 'Giáp Trụ' }, { value: 'Trang Sức / Phù' },
-        { value: 'Pháp Bảo' }, { value: 'Thần Khí' }, { value: 'Đan Dược' },
-        { value: 'Trận Pháp' }, { value: 'Công Cụ' },
+      { id: 'tagline', label: 'Bản chất', type: 'text', full: true, placeholder: 'Một câu tóm gọn linh hồn của tạo vật này...' },
+      { id: 'type', label: 'Loại tạo vật', type: 'select', options: [
+        // ── Trang bị & Thần khí ──
+        { value: 'Vũ Khí', hint: 'Kiếm, thương, cung — sát phạt chiến đấu' },
+        { value: 'Giáp Trụ', hint: 'Giáp, khiên, mũ — phòng hộ thân thể' },
+        { value: 'Trang Sức / Phù', hint: 'Nhẫn, vòng, bùa — tăng cường năng lực' },
+        { value: 'Pháp Bảo', hint: 'Bảo vật có linh tính, tự hành' },
+        { value: 'Đan Dược', hint: 'Thuốc, đan, linh lộ — chữa trị & tăng lực' },
+        { value: 'Thần Khí Vũ Trụ', hint: 'Khí cụ cấp vũ trụ, ảnh hưởng quy luật' },
+        // ── Kiến trúc & Không gian ──
+        { value: 'Thiên Cung / Kiến Trúc', hint: 'Cung điện, đền thờ, thành trì thần thánh' },
+        { value: 'Cổng / Đường Truyền', hint: 'Cổng không gian, cầu nối giữa các cõi' },
+        // ── Cơ chế & Hệ thống ──
+        { value: 'Cơ Chế / Hệ Thống', hint: 'Luân hồi, karma, sách sinh tử — quy trình vũ trụ' },
+        // ── Thiên thể & Hiện tượng ──
+        { value: 'Thiên Thể / Hiện Tượng', hint: 'Mặt trời, mặt trăng, cực quang, biển mây' },
+        // ── Tạo vật sống ──
+        { value: 'Tạo Vật Sống / Nhân Tạo', hint: 'Golem, thiên sứ, homunculus — sự sống nhân tạo' },
+        // ── Công cụ sáng thế ──
+        { value: 'Công Cụ Sáng Tạo', hint: 'Búa rèn thế giới, lò luyện linh hồn — công cụ của Đấng Tạo Hóa' },
+        // ── Trận pháp & Phong ấn ──
+        { value: 'Trận Pháp / Phong Ấn', hint: 'Trận đồ, phong ấn, kết giới — kiểm soát không gian' },
+        // ── Khái niệm hiện thực hóa ──
+        { value: 'Khái Niệm Hiện Thực Hóa', hint: 'Thời Gian, Số Phận, Cái Chết — được đúc thành thực thể' },
+        // ── Khác ──
+        { value: 'Công Cụ', hint: 'Dụng cụ thông thường, tiện ích' },
       ]},
       { id: 'rarity', label: 'Phẩm cấp', type: 'select', options: RARITY },
-      { id: 'materials', label: 'Vật liệu cấu thành', type: 'relations', relationTo: 'material', hint: 'Chọn từ kho Nguyên Tố & Vật Liệu' },
-      { id: 'recipe', label: 'Công thức rèn đúc', type: 'sublist', cols: {
-        title: 'Thành phần', meta: 'Tỉ lệ / Lượng', detail: 'Vai trò trong tạo vật', addLabel: 'Thêm thành phần',
+      { id: 'scale', label: 'Quy mô', type: 'select', options: SCALE, hint: 'Phạm vi ảnh hưởng của tạo vật' },
+      { id: 'purpose', label: 'Mục đích sáng tạo', type: 'textarea', full: true, placeholder: 'Tại sao Đấng Sáng Tạo dựng nên thực thể này? Nó phục vụ mục đích gì trong vũ trụ?' },
+      { id: 'consciousness', label: 'Ý thức', type: 'select', options: [
+        { value: 'Vô Tri', hint: 'Không có nhận thức, hoàn toàn thụ động' },
+        { value: 'Bản Năng', hint: 'Phản ứng tự động theo quy tắc được lập trình' },
+        { value: 'Linh Trí', hint: 'Có tri giác sơ khai, có thể giao tiếp đơn giản' },
+        { value: 'Trí Tuệ Cao', hint: 'Tự suy nghĩ, có ý chí và cảm xúc riêng' },
+        { value: 'Siêu Thức', hint: 'Nhận thức vượt giới hạn, có thể tự tiến hóa' },
+      ]},
+      { id: 'materials', label: 'Vật liệu / Nguyên liệu cấu thành', type: 'relations', relationTo: 'material', hint: 'Chọn từ kho Nguyên Tố & Vật Liệu' },
+      { id: 'recipe', label: 'Công thức / Quá trình tạo tác', type: 'sublist', cols: {
+        title: 'Thành phần / Bước', meta: 'Tỉ lệ / Điều kiện', detail: 'Vai trò / Kết quả', addLabel: 'Thêm thành phần',
       }},
-      { id: 'stats', label: 'Chỉ số trang bị', type: 'stats', stats: [
-        { key: 'attack', label: 'Sát Thương', min: 0, max: 100, def: 30 },
-        { key: 'defense', label: 'Phòng Ngự', min: 0, max: 100, def: 20 },
-        { key: 'durability', label: 'Độ Bền', min: 0, max: 100, def: 60 },
-        { key: 'spirit', label: 'Linh Lực', min: 0, max: 100, def: 40 },
+      { id: 'stats', label: 'Chỉ số tạo vật', type: 'stats', stats: [
+        { key: 'power', label: 'Uy Năng', min: 0, max: 100, def: 40 },
+        { key: 'complexity', label: 'Độ Phức Tạp', min: 0, max: 100, def: 30 },
+        { key: 'durability', label: 'Độ Bền / Vĩnh Cửu', min: 0, max: 100, def: 60 },
+        { key: 'spirit', label: 'Linh Tính', min: 0, max: 100, def: 35 },
+        { key: 'scope', label: 'Phạm Vi Ảnh Hưởng', min: 0, max: 100, def: 25 },
       ]},
-      { id: 'enchant', label: 'Phụ phép / Thần thông', type: 'tags', suggestions: [
-        'Thiêu đốt', 'Băng phong', 'Hút linh hồn', 'Tự tu phục', 'Nhận chủ',
-        'Vô hình', 'Xuyên giáp', 'Hồi sinh', 'Phong ấn', 'Không gian chứa đồ', 'Tăng tu vi',
+      { id: 'enchant', label: 'Đặc tính / Thần thông', type: 'tags', suggestions: [
+        // Combat
+        'Thiêu đốt', 'Băng phong', 'Xuyên giáp', 'Hút linh hồn',
+        // Utility
+        'Tự tu phục', 'Nhận chủ', 'Vô hình', 'Không gian chứa đồ',
+        // Divine / Cosmic
+        'Hồi sinh', 'Phong ấn', 'Tăng tu vi',
+        'Khúc xạ thời gian', 'Sinh ra sự sống', 'Tự vận hành',
+        'Kết nối chiều không gian', 'Hấp thu đức tin', 'Ghi chép tự động',
+        'Phong ấn linh hồn', 'Chuyển hóa vật chất', 'Tạo trọng lực',
+        'Kiểm soát thời tiết', 'Tự mở rộng', 'Tái tạo năng lượng',
       ]},
-      { id: 'awaken', label: 'Chuỗi thăng cấp / thức tỉnh', type: 'graph', full: true, graph: {
+      { id: 'sideEffects', label: 'Hệ quả / Tác dụng phụ', type: 'textarea', full: true, placeholder: 'Mọi tạo vật đều có hậu quả — nó làm mất cân bằng điều gì? Gây ảnh hưởng phụ gì?' },
+      { id: 'awaken', label: 'Chuỗi thăng cấp / tiến hóa', type: 'graph', full: true, graph: {
         mode: 'chain', titleLabel: 'Hình thái', metaLabel: 'Điều kiện thăng cấp',
-        detailLabel: 'Uy năng mới mở khóa', numeric: 'Cấp', addLabel: 'Thêm hình thái', rootHint: 'Sơ khởi',
+        detailLabel: 'Uy năng / trạng thái mới', numeric: 'Cấp', addLabel: 'Thêm hình thái', rootHint: 'Sơ khởi',
       }},
       { id: 'powerSource', label: 'Vận hành bằng hệ sức mạnh', type: 'relations', relationTo: 'power' },
-      { id: 'requirement', label: 'Điều kiện sử dụng', type: 'text', full: true, placeholder: 'Cảnh giới, huyết mạch, khế ước...' },
+      { id: 'dependencies', label: 'Phụ thuộc quy luật', type: 'relations', relationTo: 'law', hint: 'Tạo vật hoạt động nhờ quy luật nào?' },
+      { id: 'inhabitants', label: 'Sinh vật liên quan', type: 'relations', relationTo: 'species', hint: 'Ai sử dụng, cư ngụ, hoặc bị ảnh hưởng?' },
+      { id: 'requirement', label: 'Điều kiện sử dụng / Kích hoạt', type: 'text', full: true, placeholder: 'Cảnh giới, huyết mạch, khế ước, điều kiện vũ trụ...' },
       { id: 'lore', label: 'Lai lịch & Truyền thuyết', type: 'textarea', full: true },
     ],
     presets: [
+      // ── Giữ 2 preset cũ (cập nhật stats key) ──
       { name: 'Hỗn Độn Chung', values: {
         tagline: 'Chuông cổ vang một tiếng, vạn pháp câm lặng, thời gian ngưng đọng.',
-        type: 'Thần Khí', rarity: 'Hỗn Độn Phẩm',
+        type: 'Thần Khí Vũ Trụ', rarity: 'Hỗn Độn Phẩm', scale: 'Vũ Trụ',
+        consciousness: 'Linh Trí',
+        purpose: 'Để trấn áp mọi thế lực hỗn loạn, duy trì trật tự vũ trụ trong khoảnh khắc chuông vang.',
         recipe: [
           { title: 'Tinh Thể Hỗn Độn', meta: 'Lõi chính', detail: 'Nguồn năng lượng và bản thể của chuông' },
           { title: 'Long Cốt', meta: 'Khung chuông', detail: 'Chịu đựng long uy, khắc trận văn' },
         ],
-        stats: { attack: 70, defense: 90, durability: 100, spirit: 100 },
-        enchant: ['Phong ấn', 'Tự tu phục', 'Nhận chủ'],
+        stats: { power: 95, complexity: 80, durability: 100, spirit: 100, scope: 90 },
+        enchant: ['Phong ấn', 'Tự tu phục', 'Nhận chủ', 'Khúc xạ thời gian'],
         requirement: 'Chỉ bậc Hóa Thần trở lên mới rung nổi một tiếng.',
+        sideEffects: 'Mỗi tiếng chuông tiêu hao sinh mệnh của chủ nhân; vang ba tiếng liên tiếp thì cả vùng trời mất thanh âm trăm năm.',
       }},
       { name: 'Thí Thần Kiếm', values: {
         tagline: 'Kiếm sinh ra để chém thần; càng chém cường địch càng sắc.',
-        type: 'Vũ Khí', rarity: 'Thần Phẩm',
+        type: 'Vũ Khí', rarity: 'Thần Phẩm', scale: 'Cục Bộ',
+        consciousness: 'Linh Trí',
+        purpose: 'Đấng Sáng Tạo rèn kiếm này để cho phàm nhân có cơ hội thách thức cả thần linh.',
         recipe: [
           { title: 'Huyền Thiết', meta: '70%', detail: 'Thân kiếm, nặng và sắc' },
           { title: 'Long Cốt', meta: '30%', detail: 'Sống kiếm, dẫn linh và tăng uy' },
         ],
-        stats: { attack: 98, defense: 20, durability: 85, spirit: 80 },
+        stats: { power: 98, complexity: 60, durability: 85, spirit: 80, scope: 15 },
         enchant: ['Xuyên giáp', 'Hút linh hồn', 'Nhận chủ'],
         requirement: 'Người cầm phải có đạo tâm kiên định, nếu không sẽ bị kiếm ý phản phệ.',
+        sideEffects: 'Kiếm khát máu thần — cầm lâu sẽ dần bị kiếm ý chi phối, tìm thần để chém.',
         awaken: [
           { title: 'Phàm Kiếm', meta: 'Vừa rèn xong', detail: 'Sắc bén hơn thường, chưa có kiếm linh', num: 1 },
           { title: 'Linh Kiếm', meta: 'Uống máu trăm trận', detail: 'Kiếm linh thức tỉnh, tự tìm yếu điểm địch', num: 3 },
           { title: 'Thí Thần', meta: 'Chém đứt thần cách một vị thần', detail: 'Cắt đứt cả quy luật & thần tính, vô vật bất phá', num: 5 },
         ],
+      }},
+
+      // ── 5 Preset mới ──
+      { name: 'Thiên Đình', values: {
+        tagline: 'Cung điện vĩnh hằng trên chín tầng trời — nơi ngự của chư thần, trung tâm quyền lực thiên giới.',
+        type: 'Thiên Cung / Kiến Trúc', rarity: 'Thần Phẩm', scale: 'Vũ Trụ',
+        consciousness: 'Bản Năng',
+        purpose: 'Tạo ra một trung tâm quyền lực cho thần giới, nơi hội tụ và phân phối quyền năng cho chư thần.',
+        recipe: [
+          { title: 'Tinh Thể Hỗn Độn', meta: 'Nền móng', detail: 'Nền tảng bất hoại, neo vào trục vũ trụ' },
+          { title: 'Vân Ngọc', meta: 'Tường & cột', detail: 'Mây đông cứng thành ngọc, tự tỏa ánh sáng' },
+          { title: 'Ý chí của Đấng Sáng Tạo', meta: 'Lõi', detail: 'Mệnh lệnh khiến kiến trúc tự mở rộng theo số thần gia nhập' },
+        ],
+        stats: { power: 80, complexity: 95, durability: 100, spirit: 90, scope: 95 },
+        enchant: ['Tự mở rộng', 'Kết nối chiều không gian', 'Tự vận hành', 'Kiểm soát thời tiết'],
+        sideEffects: 'Thiên Đình hút linh khí từ hạ giới, khiến phàm giới bên dưới linh khí loãng hơn; thần linh ở quá lâu sẽ dần xa rời phàm nhân.',
+        lore: 'Khi Đấng Sáng Tạo vung tay, chín tầng mây cuộn lại thành bậc thang, đỉnh trời hóa thành sảnh điện. Thiên Đình từ đó là trục quay của mọi trật tự.',
+      }},
+      { name: 'Bánh Xe Luân Hồi', values: {
+        tagline: 'Cỗ máy vũ trụ xoay không ngừng — thu hoạch linh hồn, gột rửa ký ức, rồi thả về cõi sống.',
+        type: 'Cơ Chế / Hệ Thống', rarity: 'Hỗn Độn Phẩm', scale: 'Vũ Trụ',
+        consciousness: 'Bản Năng',
+        purpose: 'Đảm bảo sự sống không bao giờ thực sự chấm dứt — linh hồn được tái chế, ký ức được thanh lọc, nghiệp được cân đo.',
+        recipe: [
+          { title: 'Trục Nhân Quả', meta: 'Lõi bánh xe', detail: 'Cân đo thiện ác, quyết định hướng đầu thai' },
+          { title: 'Sông Vong Xuyên', meta: 'Hệ thống thanh lọc', detail: 'Nước xóa ký ức kiếp trước' },
+          { title: 'Sáu Đạo Quang Mạch', meta: 'Đường ra', detail: 'Sáu nhánh dẫn tới sáu cõi tái sinh' },
+        ],
+        stats: { power: 100, complexity: 100, durability: 100, spirit: 100, scope: 100 },
+        enchant: ['Tự vận hành', 'Ghi chép tự động', 'Phong ấn linh hồn', 'Chuyển hóa vật chất'],
+        sideEffects: 'Không linh hồn nào thoát được luân hồi — kể cả thần linh sa đọa; đôi khi lỗi hệ thống khiến ký ức kiếp trước rò rỉ sang kiếp mới.',
+        lore: 'Bánh xe quay từ thuở vũ trụ có sinh mệnh đầu tiên. Không ai biết ai đã tạo ra nó — có lẽ chính Đấng Sáng Tạo cũng không nhớ, vì đó là một trong những sáng tạo đầu tiên.',
+      }},
+      { name: 'Mặt Trời Đầu Tiên', values: {
+        tagline: 'Quả cầu lửa nguyên thủy — nguồn sáng và năng lượng cho cả vũ trụ non trẻ.',
+        type: 'Thiên Thể / Hiện Tượng', rarity: 'Thần Phẩm', scale: 'Thiên Hà',
+        consciousness: 'Vô Tri',
+        purpose: 'Xua tan bóng tối nguyên thủy, cung cấp năng lượng cho sự sống hình thành, và đánh dấu sự khởi đầu của thời gian.',
+        recipe: [
+          { title: 'Lửa Hỗn Độn', meta: 'Lõi sao', detail: 'Ngọn lửa từ trước cả vũ trụ, cháy không bao giờ tắt' },
+          { title: 'Khí Nguyên Thủy', meta: 'Bao bọc', detail: 'Khí hydrogen & helium ngưng tụ thành lớp đốt' },
+          { title: 'Ý niệm Ánh Sáng', meta: 'Mầm', detail: 'Mong muốn đầu tiên của Đấng Sáng Tạo: "Hãy có ánh sáng"' },
+        ],
+        stats: { power: 100, complexity: 40, durability: 90, spirit: 30, scope: 85 },
+        enchant: ['Tái tạo năng lượng', 'Sinh ra sự sống', 'Tạo trọng lực'],
+        sideEffects: 'Quá gần thì thiêu rụi mọi thứ; quá xa thì vạn vật đông cứng. Sự sống chỉ tồn tại được trong vùng "vàng" — khoảng cách hoàn hảo.',
+      }},
+      { name: 'Golem Hỗn Độn', values: {
+        tagline: 'Người khổng lồ bằng đá nguyên thủy, được thổi sự sống để canh giữ biên giới giữa các cõi.',
+        type: 'Tạo Vật Sống / Nhân Tạo', rarity: 'Bảo Phẩm', scale: 'Cục Bộ',
+        consciousness: 'Bản Năng',
+        purpose: 'Tạo ra lính canh vĩnh cửu cho những nơi mà thần linh không muốn tự tay trông giữ.',
+        recipe: [
+          { title: 'Đá Nền Vũ Trụ', meta: 'Thân thể', detail: 'Đá cổ nhất, nặng cả ngọn núi' },
+          { title: 'Lửa Linh Hồn', meta: 'Lõi sống', detail: 'Tia lửa ý thức sơ khai, cho phép vâng lệnh' },
+          { title: 'Văn Ấn Mệnh Lệnh', meta: 'Khắc lên ngực', detail: 'Bộ quy tắc hành vi: tuần tra, bảo vệ, tiêu diệt kẻ xâm nhập' },
+        ],
+        stats: { power: 75, complexity: 35, durability: 95, spirit: 20, scope: 10 },
+        enchant: ['Tự tu phục', 'Tự vận hành'],
+        sideEffects: 'Golem không phân biệt bạn thù ngoài lệnh ban đầu; nếu văn ấn mờ đi, chúng sẽ mất kiểm soát và phá hủy bừa bãi.',
+        awaken: [
+          { title: 'Thạch Nô', meta: 'Vừa tạo ra', detail: 'Chậm chạp, tuân lệnh đơn giản, sức mạnh vũ phu', num: 1 },
+          { title: 'Thạch Vệ', meta: 'Ngâm trong linh tuyền trăm năm', detail: 'Nhanh hơn, hiểu lệnh phức tạp, tự phục hồi', num: 3 },
+          { title: 'Thạch Thần', meta: 'Hấp thu mảnh thần cách', detail: 'Có tri giác, tự phán đoán, sức mạnh ngang bán thần', num: 5 },
+        ],
+      }},
+      { name: 'Bút Thiên Mệnh', values: {
+        tagline: 'Viết gì thành thật — chiếc bút định đoạt vận mệnh muôn loài, công cụ tối thượng của Đấng Sáng Tạo.',
+        type: 'Công Cụ Sáng Tạo', rarity: 'Hỗn Độn Phẩm', scale: 'Đa Vũ Trụ',
+        consciousness: 'Trí Tuệ Cao',
+        purpose: 'Cho phép Đấng Sáng Tạo viết thực tại — mỗi nét bút là một quy luật, mỗi chữ là một sự kiện không thể đảo ngược.',
+        recipe: [
+          { title: 'Xương Của Thời Gian', meta: 'Thân bút', detail: 'Mảnh xương rồng từ kỷ nguyên trước, mang ký ức của mọi dòng thời gian' },
+          { title: 'Mực Nhân Quả', meta: 'Mực', detail: 'Dung dịch từ Sông Vong Xuyên, viết xong không thể xóa' },
+          { title: 'Lông Phượng Hoàng Nguyên Thủy', meta: 'Ngòi bút', detail: 'Lông vũ đầu tiên từng tồn tại, chứa ý chí tái sinh' },
+        ],
+        stats: { power: 100, complexity: 100, durability: 80, spirit: 100, scope: 100 },
+        enchant: ['Ghi chép tự động', 'Chuyển hóa vật chất', 'Sinh ra sự sống', 'Khúc xạ thời gian'],
+        sideEffects: 'Mỗi lần viết tiêu hao ý chí của người dùng; viết quá nhiều trong một kỷ nguyên có thể khiến thực tại trở nên quá cứng nhắc, mất khả năng thay đổi tự nhiên.',
+        requirement: 'Chỉ Đấng Sáng Tạo hoặc kẻ được ủy quyền trực tiếp mới cầm nổi; phàm nhân chạm vào sẽ bị cuốn vào dòng chảy nhân quả.',
+        lore: 'Bút Thiên Mệnh là tạo vật đầu tiên — thậm chí trước cả vũ trụ. Đấng Sáng Tạo dùng nó viết ra quy luật đầu tiên: "Có tồn tại". Và từ đó, mọi thứ bắt đầu.',
       }},
     ],
   },
@@ -611,6 +742,150 @@ export const CATEGORIES: CategoryDef[] = [
         practices: ['Thiền định', 'Chay tịnh', 'Tụng kinh'],
         faithPower: 'Đạo tâm thanh tịnh giúp cảm ngộ pháp tắc, tu vi tiến triển thuận theo thiên nhiên.',
         morality: 'Trung Dung', scale: 'Vùng',
+      }},
+    ],
+  },
+
+  /* ───────────── 8. THẦN LINH & NHÂN VẬT ───────────── */
+  {
+    id: 'deity',
+    name: 'Thần Linh',
+    plural: 'Thần Linh & Nhân Vật',
+    glyph: 'deity',
+    accent: '#e0a644',
+    tagline: 'Sáng tạo và quản lý chư thần, bán thần, tinh linh — từ danh tính tới quan hệ, từ quyền năng tới truyền thuyết.',
+    nameLabel: 'Tên thần linh',
+    namePlaceholder: 'vd: Viêm Đế, Thần Chết Mạc La, Nguyệt Nữ Hằng Nga...',
+    decreeNoun: 'một VỊ THẦN / THỰC THỂ THẦN THÁNH',
+    fields: [
+      // ═══ NHÓM 1: DANH TÍNH ═══
+      { id: 'tagline', label: 'Bản chất', type: 'text', full: true, placeholder: 'Một câu tóm gọn bản chất của vị thần này...' },
+      { id: 'rank', label: 'Cấp bậc', type: 'select', options: [
+        { value: 'Thần Nguyên Thủy', hint: 'Sinh ra cùng vũ trụ, quyền năng tối thượng' },
+        { value: 'Chủ Thần', hint: 'Đứng đầu một thần hệ hoặc cai quản miền lớn' },
+        { value: 'Thần / Chân Thần', hint: 'Thần linh hoàn chỉnh' },
+        { value: 'Bán Thần', hint: 'Con lai giữa thần và phàm, hoặc chưa hoàn thiện' },
+        { value: 'Thiên Sứ / Sứ Giả', hint: 'Phục vụ thần linh bậc cao' },
+        { value: 'Tinh Linh / Thần Thú', hint: 'Thực thể thiên nhiên quyền năng' },
+        { value: 'Nhân Vật Huyền Thoại', hint: 'Phàm nhân vĩ đại hoặc dị nhân' },
+      ]},
+      { id: 'domain', label: 'Miền quyền năng', type: 'tags', suggestions: [
+        'Lửa', 'Nước', 'Gió', 'Đất', 'Sấm Sét', 'Ánh Sáng', 'Bóng Tối',
+        'Chiến Tranh', 'Hòa Bình', 'Chết Chóc', 'Sự Sống', 'Tình Yêu', 'Sắc Đẹp',
+        'Rèn Đúc', 'Nghệ Thuật', 'Trí Tuệ', 'Ký Ức', 'Thời Gian', 'Số Phận',
+        'Sáng Tạo', 'Hủy Diệt', 'Thiên Nhiên', 'Giấc Mơ', 'Phép Thuật',
+      ]},
+      { id: 'epithet', label: 'Danh hiệu / Biệt danh', type: 'text', placeholder: 'vd: Chúa Tể Lửa Nguyên Thủy, Kẻ Gặt Trăng' },
+
+      // ═══ NHÓM 2: SỨC MẠNH ═══
+      { id: 'stats', label: 'Chỉ số quyền năng', type: 'stats', stats: [
+        { key: 'power', label: 'Quyền Năng', min: 0, max: 100, def: 50 },
+        { key: 'wisdom', label: 'Trí Tuệ', min: 0, max: 100, def: 50 },
+        { key: 'combat', label: 'Chiến Đấu', min: 0, max: 100, def: 40 },
+        { key: 'influence', label: 'Ảnh Hưởng', min: 0, max: 100, def: 40 },
+        { key: 'mystery', label: 'Thần Bí', min: 0, max: 100, def: 30 },
+        { key: 'will', label: 'Ý Chí', min: 0, max: 100, def: 60 },
+      ]},
+      { id: 'abilities', label: 'Năng lực đặc biệt', type: 'tags', suggestions: [
+        'Tạo lửa từ hư vô', 'Hồi sinh', 'Tiên tri', 'Biến hình', 'Điều khiển thời gian',
+        'Đọc tâm trí', 'Bất tử', 'Phong ấn', 'Triệu hồi', 'Nguyền rủa', 'Ban phúc', 'Phân thân',
+      ]},
+      { id: 'weakness', label: 'Điểm yếu / Kẽ hở', type: 'textarea', placeholder: 'Lỗi lầm chí mạng, khắc tinh, hoặc giới hạn quy luật...' },
+      { id: 'powerSource', label: 'Nguồn sức mạnh', type: 'relations', relationTo: 'power' },
+
+      // ═══ NHÓM 3: NHÂN CÁCH ═══
+      { id: 'personality', label: 'Tính cách & Giá trị quan', type: 'textarea', full: true },
+      { id: 'appearance', label: 'Ngoại hình & Hình thái', type: 'textarea', full: true },
+      { id: 'motivation', label: 'Mục tiêu / Động lực', type: 'textarea' },
+      { id: 'moral', label: 'Khuynh hướng đạo đức', type: 'select', options: [
+        { value: 'Thuần Thiện', hint: 'Luôn bảo vệ cái thiện, bao dung vô bờ' },
+        { value: 'Thiện Nhưng Nghiêm Khắc', hint: 'Tốt nhưng phạt nặng kẻ ác' },
+        { value: 'Trung Dung', hint: 'Giữ cân bằng, không thiện không ác' },
+        { value: 'Thực Dụng', hint: 'Hành động vì lợi ích, luật lệ' },
+        { value: 'Hỗn Loạn', hint: 'Thay đổi thất thường, không lường trước' },
+        { value: 'Tà Ác', hint: 'Tàn nhẫn, khao khát quyền lực hoặc hủy diệt' },
+      ]},
+
+      // ═══ NHÓM 4: QUAN HỆ ═══
+      { id: 'allies', label: 'Đồng minh / Thần thân', type: 'relations', relationTo: 'deity' },
+      { id: 'rivals', label: 'Kẻ thù / Đối thủ', type: 'relations', relationTo: 'deity' },
+      { id: 'creator', label: 'Được tạo bởi / Phụ thân', type: 'relations', relationTo: 'deity' },
+      { id: 'subordinates', label: 'Thuộc hạ / Hầu thần', type: 'relations', relationTo: 'deity' },
+      { id: 'worshippers', label: 'Tín đồ / Chủng loài thờ phụng', type: 'relations', relationTo: 'species' },
+      { id: 'faith', label: 'Tín ngưỡng gắn liền', type: 'relations', relationTo: 'faith' },
+
+      // ═══ NHÓM 5: TRUYỀN THUYẾT ═══
+      { id: 'origin', label: 'Nguồn gốc / Cách sinh ra', type: 'textarea', full: true },
+      { id: 'artifacts', label: 'Thần khí sở hữu', type: 'relations', relationTo: 'artifact' },
+      { id: 'realm', label: 'Thế giới / Vùng cai quản', type: 'relations', relationTo: 'world' },
+      { id: 'ascension', label: 'Sức mạnh tiến hóa', type: 'graph', full: true, graph: {
+        mode: 'chain', titleLabel: 'Giai đoạn', metaLabel: 'Sự kiện',
+        detailLabel: 'Quyền năng mới', numeric: 'Sức mạnh', addLabel: 'Thêm giai đoạn', rootHint: 'Khởi điểm',
+      }},
+      { id: 'lore', label: 'Huyền thoại & Sự tích', type: 'textarea', full: true },
+    ],
+    presets: [
+      { name: 'Viêm Đế', values: {
+        tagline: 'Vị thần mang ngọn lửa đầu tiên của vũ trụ, thiêu rụi hỗn mang và rèn đúc trật tự.',
+        rank: 'Thần Nguyên Thủy', domain: ['Lửa', 'Chiến Tranh', 'Rèn Đúc'],
+        epithet: 'Chúa Tể Lửa Nguyên Thủy',
+        stats: { power: 95, wisdom: 60, combat: 100, influence: 85, mystery: 40, will: 90 },
+        abilities: ['Tạo lửa từ hư vô', 'Hồi sinh trong tro tàn'], weakness: 'Dễ bị chọc giận, mù quáng vì danh dự.',
+        personality: 'Nóng nảy, quả quyết, luôn đứng mũi chịu sào. Rất ghét sự dối trá.',
+        appearance: 'Người khổng lồ râu đỏ cháy rực, mặc giáp đồng phay, tay cầm búa rèn vĩ đại.',
+        motivation: 'Bảo vệ trật tự vũ trụ bằng bạo lực và kỷ luật.', moral: 'Thiện Nhưng Nghiêm Khắc',
+        origin: 'Sinh ra từ vụ nổ đầu tiên khi Đấng Sáng Tạo tách Ánh Sáng khỏi Bóng Tối.',
+      }},
+      { name: 'Mạc La', values: {
+        tagline: 'Đôi mắt lạnh lẽo dõi theo mọi sinh mệnh, bàn cân tuyệt đối của sự kết thúc.',
+        rank: 'Thần Nguyên Thủy', domain: ['Chết Chóc', 'Số Phận'],
+        epithet: 'Người Canh Giữ Luân Hồi',
+        stats: { power: 90, wisdom: 95, combat: 60, influence: 100, mystery: 100, will: 100 },
+        abilities: ['Nhìn thấy cái chết', 'Phong ấn linh hồn', 'Cắt đứt nhân quả'], weakness: 'Không thể can thiệp vào sinh mệnh chưa tận số.',
+        personality: 'Lạnh lùng, ít nói, tuyệt đối công bằng. Không nhận hối lộ, không biết thương xót.',
+        appearance: 'Bóng người khoác áo choàng đen, không thấy mặt, chỉ thấy đôi mắt tĩnh lặng như vực sâu.',
+        motivation: 'Duy trì sự luân chuyển của Bánh Xe Luân Hồi.', moral: 'Trung Dung',
+        origin: 'Xuất hiện cùng lúc với sinh mệnh đầu tiên qua đời.',
+      }},
+      { name: 'Nguyệt Nữ Hằng Nga', values: {
+        tagline: 'Ánh sáng dịu dàng xoa dịu những đêm dài, người dệt nên những giấc mơ.',
+        rank: 'Chủ Thần', domain: ['Ánh Sáng', 'Nghệ Thuật', 'Giấc Mơ'],
+        epithet: 'Người Dệt Mộng',
+        stats: { power: 70, wisdom: 85, combat: 30, influence: 90, mystery: 80, will: 50 },
+        abilities: ['Tiên tri qua giấc mơ', 'Điểu khiển nước', 'Ban phúc'], weakness: 'Yếu đi vào những đêm không trăng.',
+        personality: 'U sầu, tao nhã, yêu thích cái đẹp và nghệ thuật. Thường thương xót cho phàm nhân.',
+        appearance: 'Thiếu nữ dung nhan thanh lệ, tóc bạc dài như dòng thác, mặc váy lụa tỏa ánh sáng bạc.',
+        motivation: 'Tạo ra cái đẹp và bảo vệ những giấc mơ thuần khiết.', moral: 'Thuần Thiện',
+      }},
+      { name: 'Thanh Long Đế Quân', values: {
+        tagline: 'Chúa tể biển sâu, người mang lại mưa thuận gió hòa nhưng cũng có thể gây ra hồng thủy.',
+        rank: 'Thần / Chân Thần', domain: ['Nước', 'Thiên Nhiên'],
+        epithet: 'Hải Thần',
+        stats: { power: 85, wisdom: 70, combat: 75, influence: 80, mystery: 50, will: 75 },
+        abilities: ['Biến hình', 'Điều khiển thời tiết'], weakness: 'Sức mạnh gắn liền với đại dương, rời xa biển sẽ yếu đi.',
+        personality: 'Uy nghiêm, trịch thượng nhưng rất che chở cho những ai sùng bái mình.',
+        appearance: 'Thần long thân xanh ngọc, dài vạn trượng; khi hóa người là nam tử mặc hoàng bào thêu vảy rồng.',
+        moral: 'Thực Dụng',
+      }},
+      { name: 'Huyết Nha', values: {
+        tagline: 'Sinh ra trong máu lửa, khao khát chiến tranh để chứng minh bản thân.',
+        rank: 'Bán Thần', domain: ['Chiến Tranh', 'Hủy Diệt'],
+        epithet: 'Cuồng Chiến Sĩ',
+        stats: { power: 80, wisdom: 20, combat: 95, influence: 40, mystery: 10, will: 85 },
+        abilities: ['Tăng sức mạnh khi đổ máu', 'Triệu hồi vũ khí'], weakness: 'Thiếu trí tuệ, dễ bị lừa gạt, hay đánh mất lý trí.',
+        personality: 'Hoang dã, khát máu, nổi loạn chống lại mọi luật lệ.',
+        appearance: 'Thanh niên vạm vỡ mang đầy sẹo, đôi mắt đỏ ngầu, luôn cầm cự kiếm rỉ sét.',
+        moral: 'Hỗn Loạn',
+      }},
+      { name: 'Bạch Lộ Tinh', values: {
+        tagline: 'Bước chân sinh hoa, hơi thở mang lại mầm sống.',
+        rank: 'Tinh Linh / Thần Thú', domain: ['Thiên Nhiên', 'Sự Sống'],
+        epithet: 'Sứ Giả Mùa Xuân',
+        stats: { power: 40, wisdom: 60, combat: 10, influence: 50, mystery: 70, will: 40 },
+        abilities: ['Hồi sinh cây cỏ', 'Giải độc', 'Ẩn mình vào tự nhiên'], weakness: 'Không có khả năng chiến đấu.',
+        personality: 'Nhút nhát, hiền hòa, tò mò với mọi sinh vật mới.',
+        appearance: 'Hươu trắng với gạc lấp lánh như pha lê, mỗi bước đi đều có hoa cỏ mọc lên.',
+        moral: 'Thuần Thiện',
       }},
     ],
   },

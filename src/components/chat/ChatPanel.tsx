@@ -21,7 +21,45 @@ import './ChatPanel.css';
 
 marked.setOptions({ breaks: true, gfm: true });
 
+// Configure DOMPurify to allow styled HTML from regex scripts
+const REGEX_PURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    'div', 'span', 'p', 'br', 'hr', 'b', 'i', 'em', 'strong', 'u', 's', 'style',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'img',
+    'blockquote', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'details', 'summary', 'small', 'sub', 'sup', 'mark', 'del', 'ins',
+  ],
+  ALLOWED_ATTR: [
+    'class', 'style', 'id', 'href', 'src', 'alt', 'title', 'width', 'height',
+    'target', 'rel', 'data-*', 'colspan', 'rowspan',
+  ],
+  ALLOW_DATA_ATTR: true,
+};
+
+/**
+ * Kiểm tra text có chứa HTML block-level tags không (sản phẩm của regex).
+ * SillyTavern regex scripts thường tạo ra div, style, class-based HTML.
+ */
+function hasHtmlBlocks(text: string): boolean {
+  return /<(?:div|style|section|article|header|footer|main|table|html)\b/i.test(text);
+}
+
 function renderMarkdown(text: string): string {
+  const raw = marked.parse(text) as string;
+  return DOMPurify.sanitize(raw);
+}
+
+/**
+ * Render nội dung AI đã qua regex. Nếu regex đã tạo HTML → sanitize trực tiếp.
+ * Nếu không → dùng markdown bình thường.
+ */
+function renderRegexedContent(text: string): string {
+  if (hasHtmlBlocks(text)) {
+    // Regex đã tạo HTML structure → sanitize trực tiếp, KHÔNG qua marked.parse()
+    // vì marked sẽ escape các thẻ HTML thành &lt;&gt;
+    return DOMPurify.sanitize(text, REGEX_PURIFY_CONFIG);
+  }
+  // Text bình thường (regex chỉ đổi text, không tạo HTML) → render markdown
   const raw = marked.parse(text) as string;
   return DOMPurify.sanitize(raw);
 }
@@ -432,7 +470,7 @@ export const ChatPanel: React.FC = () => {
                     )}
                     <div
                       className="chat-msg-text"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingText || '') }}
+                      dangerouslySetInnerHTML={{ __html: renderRegexedContent(applyPresetRegexes(streamingText || '')) }}
                     />
                   </>
                 ) : segments ? (
@@ -457,7 +495,7 @@ export const ChatPanel: React.FC = () => {
                     )}
                     <div
                       className="chat-msg-text"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                      dangerouslySetInnerHTML={{ __html: msg.role === 'assistant' ? renderRegexedContent(msg.content) : renderMarkdown(msg.content) }}
                     />
                   </>
                 )}

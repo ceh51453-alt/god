@@ -104,8 +104,9 @@ const KEY_FIELDS: Record<CategoryId, string[]> = {
   material: ['class', 'rarity'],
   power: ['paradigm', 'energy'],
   species: ['basis', 'kingdom'],
-  artifact: ['type', 'rarity'],
+  artifact: ['type', 'scale', 'rarity'],
   faith: ['type', 'morality'],
+  deity: ['rank', 'moral'],
 };
 
 export function summarizeStudioForAI(entities: StudioEntity[], maxChars = 2400): string {

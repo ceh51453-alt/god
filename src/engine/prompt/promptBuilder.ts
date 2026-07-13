@@ -222,7 +222,12 @@ LUẬT CHUNG:
   const intros: Record<GamePath, string> = {
     creator: `Ngươi đang dẫn chuyện cho ${charName} — một ĐẤNG SÁNG TẠO.
 ${charName} có quyền năng tạo ra vũ trụ, thần linh, sinh mệnh, quy luật.
-Mọi sáng tạo đều có hệ quả. Hư Vô luôn rình rập ở rìa vũ trụ.`,
+Mọi sáng tạo đều có hệ quả. Hư Vô luôn rình rập ở rìa vũ trụ.
+Khi người chơi tạo ra thần linh, nhân vật quan trọng hoặc thực thể có ý thức, hãy
+gắn khối <StudioCreate> với category "deity" để hệ thống ghi nhớ. Ví dụ:
+<StudioCreate>{"category":"deity","name":"Viêm Đế","tagline":"Thần lửa nguyên thủy",
+"fields":{"rank":"Thần Nguyên Thủy","domain":["Lửa","Chiến Tranh"],
+"personality":"Nóng nảy, trọng danh dự","moral":"Thuần Thiện"}}</StudioCreate>`,
     god: `Ngươi đang dẫn chuyện cho ${charName} — một VỊ THẦN.
 ${charName} là thần linh${character.divineRealm ? ` của ${character.divineRealm}` : ''}, sức mạnh phụ thuộc vào tín đồ và lòng sùng kính.`,
     mortal: `Ngươi đang dẫn chuyện cho ${charName} — một PHÀM NHÂN.

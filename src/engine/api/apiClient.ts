@@ -4,6 +4,73 @@ import { useConnectionStore, type ConnectionProfile, type ProviderPreset } from 
    API CLIENT — Proxy-aware, SSE streaming, auto-retry
    ═══════════════════════════════════════════════════════ */
 
+/**
+ * Bóc tách realtime thẻ <think>...</think> từ luồng text 
+ * để đẩy vào khung UI Thinking.
+ */
+class ThinkTagParser {
+  private buffer = '';
+  private inThink = false;
+  
+  process(chunk: string, onText: (t: string) => void, onThink: (t: string) => void) {
+    this.buffer += chunk;
+    
+    while (this.buffer.length > 0) {
+      if (!this.inThink) {
+        const startIndex = this.buffer.indexOf('<think>');
+        if (startIndex === -1) {
+          const lastLess = this.buffer.lastIndexOf('<');
+          if (lastLess !== -1 && '<think>'.startsWith(this.buffer.slice(lastLess))) {
+            if (lastLess > 0) {
+               onText(this.buffer.slice(0, lastLess));
+               this.buffer = this.buffer.slice(lastLess);
+            }
+            break;
+          } else {
+            onText(this.buffer);
+            this.buffer = '';
+          }
+        } else {
+          if (startIndex > 0) {
+            onText(this.buffer.slice(0, startIndex));
+          }
+          this.inThink = true;
+          this.buffer = this.buffer.slice(startIndex + 7);
+        }
+      } else {
+        const endIndex = this.buffer.indexOf('</think>');
+        if (endIndex === -1) {
+          const lastLess = this.buffer.lastIndexOf('<');
+          if (lastLess !== -1 && '</think>'.startsWith(this.buffer.slice(lastLess))) {
+            if (lastLess > 0) {
+               onThink(this.buffer.slice(0, lastLess));
+               this.buffer = this.buffer.slice(lastLess);
+            }
+            break;
+          } else {
+            onThink(this.buffer);
+            this.buffer = '';
+          }
+        } else {
+          if (endIndex > 0) {
+            onThink(this.buffer.slice(0, endIndex));
+          }
+          this.inThink = false;
+          this.buffer = this.buffer.slice(endIndex + 8);
+        }
+      }
+    }
+  }
+  
+  flush(onText: (t: string) => void, onThink: (t: string) => void) {
+    if (this.buffer) {
+      if (this.inThink) onThink(this.buffer);
+      else onText(this.buffer);
+      this.buffer = '';
+    }
+  }
+}
+
 interface ApiRequestOptions {
   messages: Array<{ role: string; content: string }>;
   onChunk?: (text: string) => void;
@@ -155,6 +222,7 @@ async function parseSSEStream(
   if (!reader) throw new Error('No response body');
 
   const decoder = new TextDecoder();
+  const thinkParser = new ThinkTagParser();
   let buffer = '';
   let fullText = '';
   let thinkingText = '';
@@ -236,8 +304,13 @@ async function parseSSEStream(
             onThinkingChunk?.(thinkingChunk);
           }
           if (chunk) {
-            fullText += chunk;
-            onChunk(chunk);
+            thinkParser.process(chunk, (text) => {
+              fullText += text;
+              onChunk(text);
+            }, (thinkText) => {
+              thinkingText += thinkText;
+              onThinkingChunk?.(thinkText);
+            });
           }
         } catch {
           // Skip malformed JSON chunks
@@ -245,6 +318,13 @@ async function parseSSEStream(
       }
     }
   } finally {
+    thinkParser.flush((text) => {
+      fullText += text;
+      onChunk(text);
+    }, (thinkText) => {
+      thinkingText += thinkText;
+      onThinkingChunk?.(thinkText);
+    });
     reader.releaseLock();
   }
 
@@ -413,6 +493,20 @@ export async function sendChat(
           break;
         }
       }
+
+      // ────────────────────────────────────────────────────────
+      // Trích xuất thẻ <think> từ nội dung text (do Preset sinh ra)
+      // ────────────────────────────────────────────────────────
+      const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/i);
+      if (thinkMatch) {
+        // Nối thêm vào thinkingText nếu đã có sẵn từ native API
+        thinkingText = thinkingText 
+          ? thinkingText + '\n\n' + thinkMatch[1].trim()
+          : thinkMatch[1].trim();
+        // Xóa bỏ thẻ khỏi nội dung chính
+        text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+      }
+
       options.onDone?.(text, thinkingText);
       return text;
 

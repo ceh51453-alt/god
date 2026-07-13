@@ -211,26 +211,36 @@ export function commitLorebook(activeUids: number[], delayedUids: number[], curr
    BẢO TRÌ BẰNG AI (cuối lượt): tạo / bổ sung / xóa entries
    ═══════════════════════════════════════════════════════ */
 
-function getMaintConn(): { url: string; headers: Record<string, string>; model: string } | null {
+function getMaintConn(): { url: string; headers: Record<string, string>; model: string; provider: string } | null {
   const p = useConnectionStore.getState().getActiveProfile();
   if (!(p.baseUrl || p.proxyUrl) || !p.selectedModel) return null;
   const base = p.baseUrl ? p.baseUrl.replace(/\/+$/, '') : '';
   const key = p.apiKeys[p.currentKeyIndex] || '';
+  const effectiveKey = key || p.proxyPassword || '';
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (p.provider === 'anthropic') {
-    headers['x-api-key'] = key;
-    headers['anthropic-version'] = '2023-06-01';
-    headers['anthropic-dangerous-direct-browser-access'] = 'true';
-  } else if (key) {
-    headers['Authorization'] = `Bearer ${key}`;
+
+  switch (p.provider) {
+    case 'anthropic':
+      headers['x-api-key'] = effectiveKey;
+      headers['anthropic-version'] = '2023-06-01';
+      headers['anthropic-dangerous-direct-browser-access'] = 'true';
+      break;
+    case 'google':
+      headers['x-goog-api-key'] = effectiveKey;
+      break;
+    default: // openai, custom
+      if (effectiveKey) headers['Authorization'] = `Bearer ${effectiveKey}`;
+      break;
   }
+
   if (p.proxyPassword) headers['X-Proxy-Password'] = p.proxyPassword;
+
   let url = `${base}/chat/completions`;
   if (p.proxyUrl) {
     const proxy = p.proxyUrl.replace(/\/+$/, '');
     url = base ? `${proxy}?target=${encodeURIComponent(url)}` : `${proxy}/chat/completions`;
   }
-  return { url, headers, model: p.selectedModel };
+  return { url, headers, model: p.selectedModel, provider: p.provider };
 }
 
 function buildMaintenancePrompt(recentText: string, entries: LoreEntry[]): string {
@@ -335,26 +345,69 @@ export async function runLorebookMaintenance(recentText: string): Promise<{ crea
   st.setStatus('running', 'Đang cập nhật Sổ Tri Thức...');
   try {
     const prompt = buildMaintenancePrompt(recentText, st.entries);
+    const systemContent = 'Bạn là trợ lý quản lý World Info. Chỉ trả về JSON thuần.';
+
+    // Build body matching provider format (same as apiClient.ts)
+    let body: Record<string, unknown>;
+    switch (conn.provider) {
+      case 'anthropic':
+        body = {
+          model: conn.model,
+          system: systemContent,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1500,
+          temperature: 0.4,
+          stream: false,
+        };
+        break;
+      case 'google':
+        body = {
+          contents: [
+            { role: 'user', parts: [{ text: systemContent + '\n\n' + prompt }] },
+          ],
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 1500,
+          },
+        };
+        break;
+      default: // openai, custom
+        body = {
+          model: conn.model,
+          messages: [
+            { role: 'system', content: systemContent },
+            { role: 'user', content: prompt },
+          ],
+          max_tokens: 1500,
+          temperature: 0.4,
+          stream: false,
+        };
+        break;
+    }
+
     const response = await fetch(conn.url, {
       method: 'POST',
       headers: conn.headers,
-      body: JSON.stringify({
-        model: conn.model,
-        messages: [
-          { role: 'system', content: 'Bạn là trợ lý quản lý World Info. Chỉ trả về JSON thuần.' },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: 1500,
-        temperature: 0.4,
-        stream: false,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(45000),
     });
     if (!response.ok) throw new Error(`API ${response.status}`);
     const data = await response.json();
-    const text = data.choices?.[0]?.message?.content
-      ?? data.content?.[0]?.text
-      ?? '';
+
+    // Extract text from provider-specific response format
+    let text = '';
+    switch (conn.provider) {
+      case 'anthropic':
+        text = data.content?.[0]?.text ?? '';
+        break;
+      case 'google':
+        text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        break;
+      default:
+        text = data.choices?.[0]?.message?.content ?? '';
+        break;
+    }
+
     const ops = parseLoreOps(text);
     const res = applyLoreOps(ops);
     st.setStatus('done', `Sổ Tri Thức: +${res.created} mới · ~${res.updated} sửa · -${res.deleted} xóa`);

@@ -20,7 +20,7 @@ export const PowersView: React.FC = () => {
   // Studio entities relevant to this view
   const allEntities = useStudioStore(s => s.entities);
   const creatorEntities = allEntities.filter(e =>
-    ['species', 'artifact', 'power', 'material'].includes(e.category)
+    ['species', 'artifact', 'power', 'material', 'deity'].includes(e.category)
   );
 
   // Live abilities from statData

@@ -6,7 +6,7 @@ import {
   getCategory, entitySummary, asStr,
   type StudioEntity, type CategoryId,
 } from '@/components/studio/studioTypes';
-import { MapIcon, ScrollIcon, LightningIcon } from '@/ui/icons';
+import { MapIcon, ScrollIcon, LightningIcon, CrownIcon } from '@/ui/icons';
 import './GameViews.css';
 
 /* ── Compact icons ── */
@@ -52,6 +52,7 @@ function getBadges(e: StudioEntity): string[] {
     case 'world': push('type'); push('scale'); break;
     case 'law': push('domain'); push('scope'); break;
     case 'faith': push('type'); push('morality'); break;
+    case 'deity': push('rank'); push('moral'); break;
     case 'power': push('paradigm'); break;
     case 'species': push('kingdom'); break;
     case 'material': push('class'); push('rarity'); break;
@@ -109,6 +110,7 @@ export const WorldView: React.FC = () => {
   const species = allEntities.filter(e => e.category === 'species');
   const materials = allEntities.filter(e => e.category === 'material');
   const artifacts = allEntities.filter(e => e.category === 'artifact');
+  const deities = allEntities.filter(e => e.category === 'deity');
 
   const totalEntities = allEntities.length;
   const timeline = statData.timeline || [];
@@ -186,6 +188,7 @@ export const WorldView: React.FC = () => {
             {materials.length > 0 && <StatCard label="Vật Liệu" value={materials.length} accent="#a8844a" />}
             {artifacts.length > 0 && <StatCard label="Tạo Vật" value={artifacts.length} accent="#c9a84c" />}
             {faiths.length > 0 && <StatCard label="Tín Ngưỡng" value={faiths.length} accent="#d47a3a" />}
+            {deities.length > 0 && <StatCard label="Thần Linh" value={deities.length} accent="#e0a644" />}
             <StatCard label="Tổng" value={totalEntities} accent={pathAccent} />
           </div>
         </div>
@@ -225,6 +228,15 @@ export const WorldView: React.FC = () => {
         entities={faiths}
         categoryId="faith"
         emptyText="Chưa có tín ngưỡng"
+      />
+
+      {/* Deities */}
+      <CategorySection
+        title="Thần Điện"
+        icon={<CrownIcon size={16} color="#e0a644" />}
+        entities={deities}
+        categoryId="deity"
+        emptyText="Chưa có thần linh"
       />
 
       {/* Species */}

@@ -8,7 +8,7 @@ import {
 } from './studioTypes';
 import { StudioEditor } from './StudioEditor';
 import {
-  MapIcon, ScrollIcon, SwordIcon, LightningIcon, PrayerIcon,
+  MapIcon, ScrollIcon, SwordIcon, LightningIcon, PrayerIcon, CrownIcon,
 } from '@/ui/icons';
 import './CreationStudio.css';
 
@@ -31,6 +31,7 @@ const DnaIcon: React.FC<GlyphProps> = ({ size = 20, color = 'currentColor' }) =>
 const GLYPHS: Record<string, React.FC<GlyphProps>> = {
   world: MapIcon, law: ScrollIcon, material: GemIcon,
   power: LightningIcon, species: DnaIcon, artifact: SwordIcon, faith: PrayerIcon,
+  deity: CrownIcon,
 };
 
 /* ── Badges hiển thị trên thẻ ── */
@@ -43,8 +44,9 @@ function cardBadges(e: StudioEntity): string[] {
     case 'material': push('class'); push('rarity'); break;
     case 'power': push('paradigm'); break;
     case 'species': push('kingdom'); push('basis'); break;
-    case 'artifact': push('type'); push('rarity'); break;
+    case 'artifact': push('type'); push('scale'); push('rarity'); break;
     case 'faith': push('type'); push('morality'); break;
+    case 'deity': push('rank'); push('moral'); break;
   }
   return out.slice(0, 2);
 }

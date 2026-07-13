@@ -11,7 +11,25 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import './NarrativeTag.css';
 
+const REGEX_PURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    'div', 'span', 'p', 'br', 'hr', 'b', 'i', 'em', 'strong', 'u', 's', 'style',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'img',
+    'blockquote', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'details', 'summary', 'small', 'sub', 'sup', 'mark', 'del', 'ins',
+  ],
+  ALLOWED_ATTR: [
+    'class', 'style', 'id', 'href', 'src', 'alt', 'title', 'width', 'height',
+    'target', 'rel', 'data-*', 'colspan', 'rowspan',
+  ],
+  ALLOW_DATA_ATTR: true,
+};
+
 function renderMd(text: string): string {
+  // Nếu text chứa HTML block (sản phẩm của regex) → sanitize trực tiếp
+  if (/<(?:div|style|section|article|header|footer|main|table|html)\b/i.test(text)) {
+    return DOMPurify.sanitize(text, REGEX_PURIFY_CONFIG);
+  }
   return DOMPurify.sanitize(marked.parse(text) as string);
 }
 

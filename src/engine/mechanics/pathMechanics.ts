@@ -109,17 +109,23 @@ ${common}
   · một thế giới/quy luật: 200–500   · một vũ trụ/vị thần: 600–1500
   → phát {"op":"delta","path":"resources.power","value": -X}. Nghỉ ngơi/hấp thu có thể HỒI power (+).
 - TIẾN TRÌNH: hành động khai sáng lớn thưởng +10..+120 progress: {"op":"delta","path":"resources.progress","value":+X}.
-- CÂN BẰNG VŨ TRỤ (Trật Tự − Hỗn Mang): lệch quá ±150 → thiên tai, biến dị, tạo vật mất kiểm soát; hãy thể hiện trong lời kể.
+- THƯỚC ĐO CÂN BẰNG VŨ TRỤ (Trật Tự − Hỗn Mang):
+  · Lệch Hỗn Mang (<-30): Tăng tốc độ sinh sôi của các loài dị dị/quái vật, giảm cost Sáng Tạo 20%, nhưng dễ mất kiểm soát (Tạo vật có thể phản loạn, cắn trả).
+  · Lệch Trật Tự (>30): Tạo vật quy củ, vâng lời, dễ phát triển văn minh, nhưng tiêu hao Quyền Năng (Power) nhiều hơn 20% khi muốn tạo ra sự đột phá.
+  · Cân bằng (-30 đến 30): Vạn vật phát triển hài hòa.
+- THƯỚC ĐO THIÊN UY (Sáng Tạo - Hủy Diệt):
+  · Quá thiên về Hủy Diệt: Trở thành Ác Thần, các hành động hủy diệt hồi lại Quyền Năng, sinh linh khiếp sợ.
+  · Quá thiên về Sáng Tạo: Trở thành Đấng Tạo Hóa thuần túy, tuy nhiên các mầm mống hủy diệt tiềm ẩn sẽ tự phát sinh thành quái vật.
 - Ý CHÍ TỰ DO: sinh mệnh/thần do ngươi tạo có "power" và "loyalty". Loyalty thấp + power cao → có thể phản loạn (cập nhật entities.*.loyalty, tạo quest/xung đột).
 - Ghi tạo vật lớn vào sổ: {"op":"insert","path":"entities","key":"<slug>","value":{"name":"...","type":"realm|creature|god|artifact|concept","power":N,"description":"..."}}.
 
 GHI VÀO XƯỞNG SÁNG THẾ (tự động, KHÔNG cần người chơi bấm tay):
-Khi ngươi sáng tạo một thứ đáng lưu vào Xưởng — thế giới, hệ sức mạnh, chủng loài, vật liệu, tạo vật, tín ngưỡng, hoặc quy luật — hãy THÊM khối <StudioCreate> ở cuối (sau <UpdateVariable>). Khối này BỊ ẨN khỏi người chơi.
+Khi ngươi sáng tạo một thứ đáng lưu vào Xưởng — thế giới, hệ sức mạnh, chủng loài, vật liệu, tạo vật, tín ngưỡng, quy luật, sự kiện vũ trụ, hoặc thần hệ — hãy THÊM khối <StudioCreate> ở cuối (sau <UpdateVariable>). Khối này BỊ ẨN khỏi người chơi.
 Định dạng:
 <StudioCreate>
-{"category":"<world|law|material|power|species|artifact|faith>","name":"...","tagline":"một câu bản chất","fields":{ ...vài trường chính... }}
+{"category":"<world|law|material|power|species|artifact|faith|cosmic_event|divine_hierarchy>","name":"...","tagline":"một câu bản chất","fields":{ ...vài trường chính... }}
 </StudioCreate>
-Ví dụ trường chính theo loại: world→{type,scale,environment}; power→{paradigm,energy,mechanism}; species→{basis,kingdom,baseForm,traits:[...]}; material→{class,rarity,properties:[...]}; artifact→{type,rarity,enchant:[...]}; faith→{type,creed,practices:[...]}; law→{domain,scope,effect}.
+Ví dụ trường chính theo loại: world→{type,scale,environment}; power→{paradigm,energy,mechanism}; cosmic_event→{era,impact,participants}; divine_hierarchy→{pantheon,roles,domains}.
 Chỉ dùng giá trị chuỗi/mảng chuỗi cho fields.
 - Tạo MỚI: ghi một lần khi thực thể lần đầu xuất hiện.
 - CẬP NHẬT/tiến hóa thực thể đã có: phát lại <StudioCreate> với ĐÚNG "category" và "name" cũ, chỉ kèm các trường thay đổi/bổ sung — hệ thống sẽ hợp nhất, không tạo trùng.`.trim();

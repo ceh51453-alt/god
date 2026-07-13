@@ -13,7 +13,9 @@ export type CategoryId =
   | 'species'    // Sinh Vật & Tiến Hóa
   | 'artifact'   // Tạo Vật & Kiến Tạo
   | 'faith'      // Tín Ngưỡng
-  | 'deity';     // Thần Linh & Nhân Vật
+  | 'deity'      // Thần Linh & Nhân Vật
+  | 'cosmic_event'     // Sự kiện vũ trụ
+  | 'divine_hierarchy'; // Thần hệ & Cấp bậc
 
 export type FieldType =
   | 'text'       // 1 dòng
@@ -889,6 +891,55 @@ export const CATEGORIES: CategoryDef[] = [
       }},
     ],
   },
+  /* ───────────── 9. SỰ KIỆN VŨ TRỤ ───────────── */
+  {
+    id: 'cosmic_event',
+    name: 'Sự Kiện Vũ Trụ',
+    plural: 'Các Sự Kiện Kỷ Nguyên',
+    glyph: 'zap',
+    accent: '#b24c4c',
+    tagline: 'Khủng hoảng, kiếp nạn, vụ nổ, hay các thời khắc bản lề của vũ trụ.',
+    nameLabel: 'Tên sự kiện',
+    namePlaceholder: 'vd: Đại Nạn Phá Hư, Kỷ Nguyên Ánh Sáng...',
+    decreeNoun: 'một SỰ KIỆN VŨ TRỤ',
+    fields: [
+      { id: 'tagline', label: 'Bản chất', type: 'text', full: true, placeholder: 'Tóm tắt sự kiện này...' },
+      { id: 'era', label: 'Kỷ nguyên / Thời điểm', type: 'text' },
+      { id: 'impact', label: 'Hệ quả / Sức ảnh hưởng', type: 'textarea', full: true },
+      { id: 'participants', label: 'Các thế lực/thực thể tham gia', type: 'relations', relationTo: 'deity' },
+      { id: 'worlds_affected', label: 'Thế giới bị ảnh hưởng', type: 'relations', relationTo: 'world' },
+    ],
+    presets: [
+      { name: 'Vụ Nổ Nguyên Thủy', values: {
+        tagline: 'Khoảnh khắc không gian và thời gian bắt đầu giãn nở.',
+        era: 'Khởi thủy', impact: 'Tạo ra 4 nguyên tố cơ bản và các thế giới hạt nhân.',
+      }}
+    ],
+  },
+  /* ───────────── 10. THẦN HỆ ───────────── */
+  {
+    id: 'divine_hierarchy',
+    name: 'Thần Hệ',
+    plural: 'Các Thần Hệ',
+    glyph: 'users',
+    accent: '#e6c86e',
+    tagline: 'Cấu trúc cai quản của thần linh, phân chia quyền lực và lãnh địa.',
+    nameLabel: 'Tên thần hệ',
+    namePlaceholder: 'vd: Cổ Thần Phái, Thiên Đình...',
+    decreeNoun: 'một THẦN HỆ',
+    fields: [
+      { id: 'tagline', label: 'Bản chất', type: 'text', full: true, placeholder: 'Mục đích tồn tại của thần hệ...' },
+      { id: 'pantheon', label: 'Các thần chủ chốt', type: 'relations', relationTo: 'deity' },
+      { id: 'roles', label: 'Phân cấp quyền lực', type: 'textarea', full: true, placeholder: 'Thiên Đế -> Bát Vị Chân Thần -> ...' },
+      { id: 'domains', label: 'Lãnh địa cai quản', type: 'relations', relationTo: 'world' },
+    ],
+    presets: [
+      { name: 'Hội Đồng Hỗn Mang', values: {
+        tagline: 'Tập hợp các cổ thần cai quản quy luật cốt lõi.',
+        roles: '3 Vị Tối Cao quyết định mọi vấn đề vũ trụ.',
+      }}
+    ],
+  }
 ];
 
 /* ═══════════════════════════════════════════════════════

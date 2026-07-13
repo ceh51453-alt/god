@@ -28,10 +28,24 @@ const DnaIcon: React.FC<GlyphProps> = ({ size = 20, color = 'currentColor' }) =>
   </svg>
 );
 
+const ZapIcon: React.FC<GlyphProps> = ({ size = 20, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round">
+    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+  </svg>
+);
+const UsersIcon: React.FC<GlyphProps> = ({ size = 20, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
 const GLYPHS: Record<string, React.FC<GlyphProps>> = {
   world: MapIcon, law: ScrollIcon, material: GemIcon,
   power: LightningIcon, species: DnaIcon, artifact: SwordIcon, faith: PrayerIcon,
-  deity: CrownIcon,
+  deity: CrownIcon, zap: ZapIcon, users: UsersIcon
 };
 
 /* ── Badges hiển thị trên thẻ ── */
@@ -98,7 +112,9 @@ export const CreationStudio: React.FC = () => {
       </div>
 
       {viewMode === 'web' ? (
-        <GenesisWeb />
+        <div className="studio-web-container">
+          <GenesisWeb />
+        </div>
       ) : (
         <>
 

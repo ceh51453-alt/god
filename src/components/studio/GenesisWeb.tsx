@@ -81,6 +81,25 @@ export const GenesisWeb: React.FC = () => {
       </div>
 
       <div className="gw-canvas">
+        {/* Cosmic Dashboard */}
+        <div className="cosmic-dashboard">
+          <div className="dashboard-title">Bản Đồ Kiến Tạo</div>
+          <div className="dashboard-stats">
+            <div className="stat-item">
+              <span className="stat-val">{entities.length}</span>
+              <span className="stat-lbl">Thực thể</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-val">{edges.length}</span>
+              <span className="stat-lbl">Liên kết</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-val">{columns.length}</span>
+              <span className="stat-lbl">Phân hệ</span>
+            </div>
+          </div>
+        </div>
+
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="gw-svg">
           {/* Column labels */}
           {columns.map(c => (
@@ -91,12 +110,12 @@ export const GenesisWeb: React.FC = () => {
 
           {/* Edges */}
           {edges.map((ed, i) => {
-            const x1 = ed.from.x + COL_W / 2, y1 = ed.from.y + NODE_H / 2;
-            const x2 = ed.to.x + COL_W / 2, y2 = ed.to.y + NODE_H / 2;
+            const x1 = ed.from.x + 14, y1 = ed.from.y + NODE_H / 2;
+            const x2 = ed.to.x + 14, y2 = ed.to.y + NODE_H / 2;
             const mx = (x1 + x2) / 2;
             return (
               <path key={i} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`}
-                fill="none" stroke={`${ed.color}55`} strokeWidth={1.5} />
+                fill="none" stroke={`${ed.color}66`} strokeWidth={1} strokeDasharray="4 4" />
             );
           })}
 
@@ -104,11 +123,14 @@ export const GenesisWeb: React.FC = () => {
           {placed.map(p => (
             <g key={p.e.id} className="gw-node" transform={`translate(${p.x}, ${p.y})`}
               style={{ cursor: 'pointer' }} onClick={() => openNode(p.e)}>
-              <rect width={COL_W} height={NODE_H} rx={9}
-                fill={`${p.accent}1f`} stroke={`${p.accent}88`} strokeWidth={1.4} />
-              <rect width={4} height={NODE_H} rx={2} fill={p.accent} />
-              <text x={14} y={NODE_H / 2 + 4} className="gw-node-name" fill="var(--text-primary)">
-                {truncate(p.e.name || 'Vô Danh', 17)}
+              {/* Vầng hào quang (glow) */}
+              <circle cx={14} cy={NODE_H / 2} r={12} fill={`${p.accent}33`} filter="blur(4px)" />
+              {/* Lõi ngôi sao */}
+              <circle cx={14} cy={NODE_H / 2} r={5} fill={p.accent} />
+              
+              <rect x={24} y={NODE_H / 2 - 12} width={COL_W - 24} height={24} rx={12} fill="rgba(10,12,16,0.7)" stroke={`${p.accent}44`} strokeWidth={1} />
+              <text x={34} y={NODE_H / 2 + 4} className="gw-node-name" fill="var(--text-primary)" fontSize={11} letterSpacing="0.5px">
+                {truncate(p.e.name || 'Vô Danh', 16)}
               </text>
             </g>
           ))}

@@ -7,6 +7,7 @@ import {
   CREATOR_TRAITS, GOD_TRAITS, MORTAL_TRAITS,
   CREATOR_REPUTATIONS, GOD_REPUTATIONS, MORTAL_REPUTATIONS,
   CREATOR_CRISES, GOD_CRISES, MORTAL_CRISES,
+  CREATOR_DOMAINS
 } from './creationData';
 import { CREATOR_PRESETS, GOD_PRESETS, MORTAL_PRESETS, type CharacterPreset } from './creationPresets';
 import { generateCharacter } from '@/engine/api/characterGen';
@@ -42,6 +43,13 @@ export const CreationWizard: React.FC<Props> = ({ path, onComplete, onBack }) =>
 
   const updateAttr = useCallback((key: string, val: number) => {
     setChar(prev => ({ ...prev, attributes: { ...prev.attributes, [key]: val } }));
+  }, []);
+
+  const updateFollowerAttr = useCallback((key: string, val: number) => {
+    setChar(prev => ({
+      ...prev,
+      followerAttributes: { ...(prev.followerAttributes || {}), [key]: val }
+    }));
   }, []);
 
   const toggleTrait = useCallback((id: string) => {
@@ -95,7 +103,7 @@ export const CreationWizard: React.FC<Props> = ({ path, onComplete, onBack }) =>
         {/* Step Content */}
         <div className="wizard-body" key={`body-${currentStep.id}`}>
           {renderStepContent(currentStep.id, {
-            path, char, updateChar, updateAttr, toggleTrait,
+            path, char, updateChar, updateAttr, updateFollowerAttr, toggleTrait,
             attributes, traits, reputations, crises, presets,
             customCrisis, setCustomCrisis,
             steps, stepIndex,
@@ -159,6 +167,7 @@ interface StepCtx {
   char: CharacterData;
   updateChar: (p: Partial<CharacterData>) => void;
   updateAttr: (k: string, v: number) => void;
+  updateFollowerAttr: (k: string, v: number) => void;
   toggleTrait: (id: string) => void;
   attributes: AttributeDef[];
   traits: TraitDef[];
@@ -330,14 +339,7 @@ const IdentityStep: React.FC<StepCtx> = ({ path, char, updateChar, presets }) =>
 
 // ── COSMIC DOMAIN (Creator only) ──
 const CosmicDomainStep: React.FC<StepCtx> = ({ char, updateChar }) => {
-  const domains = [
-    { id: 'void', name: 'Hư Vô Nguyên Thuỷ', desc: 'Bắt đầu từ hư không tuyệt đối, tạo dựng từ không thành có' },
-    { id: 'chaos', name: 'Biển Hỗn Mang', desc: 'Năng lượng hỗn loạn vô tận, cần được uốn nắn thành hình' },
-    { id: 'dream', name: 'Giấc Mơ Vũ Trụ', desc: 'Vạn vật là giấc mơ của ngươi, thực tại là ảo ảnh' },
-    { id: 'cosmic_egg', name: 'Trứng Vũ Trụ', desc: 'Vũ trụ đang ấp ủ trong quả trứng khổng lồ, chờ nở ra' },
-    { id: 'word', name: 'Lời Nói Sáng Tạo', desc: 'Mọi thứ được tạo ra bằng lời nói, ngôn ngữ là quyền năng' },
-    { id: 'custom', name: 'Tự Do Sáng Tạo', desc: 'Nhập miền khởi nguyên theo ý ngươi' },
-  ];
+  const domains = CREATOR_DOMAINS;
 
   return (
     <div className="step-fields">
@@ -349,7 +351,8 @@ const CosmicDomainStep: React.FC<StepCtx> = ({ char, updateChar }) => {
             onClick={() => updateChar({ cosmicDomain: d.id })}
           >
             <span className="wizard-card-title">{d.name}</span>
-            <span className="wizard-card-desc">{d.desc}</span>
+            <span className="wizard-card-desc">{d.description}</span>
+            {d.effects && <span className="wizard-card-effects">Hiệu ứng: {d.effects}</span>}
           </button>
         ))}
       </div>
@@ -410,7 +413,7 @@ const OriginStep: React.FC<StepCtx> = ({ char, updateChar }) => {
 };
 
 // ── ERA & REGION ──
-const EraStep: React.FC<StepCtx> = ({ char, updateChar }) => (
+const EraStep: React.FC<StepCtx> = ({ path, char, updateChar }) => (
   <div className="step-fields">
     <div className="field-group">
       <label className="field-label">Tên Kỷ Nguyên / Thời Đại</label>
@@ -431,15 +434,17 @@ const EraStep: React.FC<StepCtx> = ({ char, updateChar }) => (
         rows={3}
       />
     </div>
-    <div className="field-group">
-      <label className="field-label">Khu Vực Hiện Tại</label>
-      <input
-        className="field-input field-input--center"
-        value={char.region}
-        onChange={e => updateChar({ region: e.target.value })}
-        placeholder="Ví dụ: Núi Côn Luân, Thành Valhalla, Rừng cấm phía Bắc..."
-      />
-    </div>
+    {path !== 'creator' && (
+      <div className="field-group">
+        <label className="field-label">Khu Vực Hiện Tại</label>
+        <input
+          className="field-input field-input--center"
+          value={char.region}
+          onChange={e => updateChar({ region: e.target.value })}
+          placeholder="Ví dụ: Núi Côn Luân, Thành Valhalla, Rừng cấm phía Bắc..."
+        />
+      </div>
+    )}
   </div>
 );
 
@@ -485,62 +490,118 @@ const FactionStep: React.FC<StepCtx> = ({ path, char, updateChar }) => {
 };
 
 // ── ATTRIBUTES + TRAITS ──
-const AttributesStep: React.FC<StepCtx> = ({ char, updateAttr, attributes, traits, toggleTrait, updateChar }) => (
-  <div className="step-fields">
-    <div className="attr-list">
-      {attributes.map(a => (
-        <div key={a.key} className="attr-row">
-          <div className="attr-row-header">
-            <span className="attr-name">{a.name}</span>
+const AttributesStep: React.FC<StepCtx> = ({ path, char, updateAttr, attributes, traits, toggleTrait, updateChar }) => {
+  // Đối với Creator, tạo UI Cán cân vũ trụ
+  const renderCreatorScales = () => {
+    const pairs = [
+      { left: 'order', right: 'chaos', leftName: 'Trật Tự', rightName: 'Hỗn Mang' },
+      { left: 'creation', right: 'destruction', leftName: 'Sáng Tạo', rightName: 'Hủy Diệt' },
+      { left: 'wisdom', right: 'empathy', leftName: 'Toàn Tri', rightName: 'Từ Bi' },
+    ];
+    return (
+      <div className="cosmic-scales">
+        {pairs.map(p => {
+          const lVal = char.attributes[p.left] ?? 0;
+          const rVal = char.attributes[p.right] ?? 0;
+          const balance = lVal - rVal; // >0 means leaning left, <0 means leaning right
+          
+          return (
+            <div key={p.left} className="cosmic-scale-row">
+              <div className="cosmic-scale-header">
+                <span className="scale-label left-label">{p.leftName} ({lVal})</span>
+                <span className="scale-value">{balance === 0 ? 'Cân bằng' : balance > 0 ? `Lệch ${p.leftName}` : `Lệch ${p.rightName}`}</span>
+                <span className="scale-label right-label">{p.rightName} ({rVal})</span>
+              </div>
+              <div className="cosmic-scale-controls">
+                <input
+                  type="range"
+                  min="-100" max="100"
+                  value={balance}
+                  onChange={e => {
+                    const v = Number(e.target.value);
+                    if (v >= 0) {
+                      updateAttr(p.left, v);
+                      updateAttr(p.right, 0);
+                    } else {
+                      updateAttr(p.left, 0);
+                      updateAttr(p.right, Math.abs(v));
+                    }
+                  }}
+                  className="scale-slider"
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="step-fields">
+      <div className="attr-list">
+        {path === 'creator' && (
+          <div style={{ marginBottom: '2rem' }}>
+            <h4 className="traits-title" style={{ marginBottom: '1rem' }}>Cán Cân Vũ Trụ (Chỉnh Nhanh)</h4>
+            {renderCreatorScales()}
+            <h4 className="traits-title" style={{ marginTop: '2rem', marginBottom: '1rem' }}>Chỉ Số Tự Do (Chỉnh Chi Tiết)</h4>
+          </div>
+        )}
+        
+        {attributes.map(a => (
+          <div key={a.key} className="attr-row">
+            <div className="attr-row-header">
+              <span className="attr-name">{a.name}</span>
+              <input
+                className="attr-number"
+                type="number"
+                min={a.min}
+                max={a.max}
+                value={char.attributes[a.key] ?? a.default}
+                onChange={e => updateAttr(a.key, Math.min(a.max, Math.max(a.min, Number(e.target.value))))}
+              />
+            </div>
+            <p className="attr-desc">{a.description}</p>
             <input
-              className="attr-number"
-              type="number"
+              className="attr-slider"
+              type="range"
               min={a.min}
               max={a.max}
               value={char.attributes[a.key] ?? a.default}
-              onChange={e => updateAttr(a.key, Math.min(a.max, Math.max(a.min, Number(e.target.value))))}
+              onChange={e => updateAttr(a.key, Number(e.target.value))}
             />
           </div>
-          <p className="attr-desc">{a.description}</p>
-          <input
-            className="attr-slider"
-            type="range"
-            min={a.min}
-            max={a.max}
-            value={char.attributes[a.key] ?? a.default}
-            onChange={e => updateAttr(a.key, Number(e.target.value))}
-          />
-        </div>
-      ))}
-    </div>
-
-    <div className="traits-section">
-      <h4 className="traits-title">Bẩm Phú Đặc Biệt (chọn nhiều)</h4>
-      <div className="trait-grid">
-        {traits.map(t => (
-          <button
-            key={t.id}
-            className={`wizard-card wizard-card--sm ${char.traits.includes(t.id) ? 'wizard-card--selected' : ''}`}
-            onClick={() => toggleTrait(t.id)}
-          >
-            <span className="wizard-card-title">{t.name}</span>
-            <span className="wizard-card-desc">{t.description}</span>
-            <span className="wizard-card-effect">{t.effects}</span>
-          </button>
         ))}
       </div>
-      <div className="field-group">
-        <label className="field-label">Bẩm phú tùy chỉnh (Tùy chọn)</label>
-        <input
-          className="field-input"
-          value={char.customTraits}
-          onChange={e => updateChar({ customTraits: e.target.value })}
-          placeholder="Ví dụ: Thiên sinh tàn tật (Thể Chất -50)"
-        />
+
+      <div className="traits-section">
+        <h4 className="traits-title">Bẩm Phú Đặc Biệt (chọn nhiều)</h4>
+        <div className="trait-grid">
+          {traits.map(t => (
+            <button
+              key={t.id}
+              className={`wizard-card wizard-card--sm ${char.traits.includes(t.id) ? 'wizard-card--selected' : ''}`}
+              onClick={() => toggleTrait(t.id)}
+            >
+              <span className="wizard-card-title">{t.name}</span>
+              <span className="wizard-card-desc">{t.description}</span>
+              <span className="wizard-card-effect">{t.effects}</span>
+            </button>
+          ))}
+        </div>
+        <div className="field-group">
+          <label className="field-label">Bẩm phú tùy chỉnh (Tùy chọn)</label>
+          <input
+            className="field-input"
+            value={char.customTraits}
+            onChange={e => updateChar({ customTraits: e.target.value })}
+            placeholder="Ví dụ: Thiên sinh tàn tật (Thể Chất -50)"
+          />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ── COSMOS (Creator only) ──
 const CosmosStep: React.FC<StepCtx> = ({ char, updateChar }) => (
@@ -624,58 +685,140 @@ const CrisisStep: React.FC<StepCtx> = ({ char, updateChar, crises, customCrisis,
   </div>
 );
 
-// ── FOLLOWERS (God) ──
-const FollowersStep: React.FC<StepCtx> = ({ char, updateChar }) => (
-  <div className="step-fields">
-    <div className="field-group">
-      <label className="field-label">Thiên Sứ / Thủ Lĩnh Tín Đồ (Tùy chọn)</label>
-      <input
-        className="field-input field-input--center"
-        value={char.followerName}
-        onChange={e => updateChar({ followerName: e.target.value })}
-        placeholder="Tên thiên sứ hoặc thủ lĩnh giáo đoàn"
-      />
-    </div>
-    <div className="field-group">
-      <label className="field-label">Mô tả (Tùy chọn)</label>
-      <textarea
-        className="field-textarea"
-        value={char.followerDesc}
-        onChange={e => updateChar({ followerDesc: e.target.value })}
-        placeholder="Người này từng là..., sở hữu khả năng..., trung thành vì..."
-        rows={3}
-      />
-    </div>
-  </div>
-);
-
-// ── COMPANION (Mortal) ──
-const CompanionStep: React.FC<StepCtx> = ({ char, updateChar }) => (
-  <div className="step-fields">
-    <p className="step-note">Trong loạn thế, một cây làm chẳng nên non. Ngươi có một đồng hành tâm phúc không?</p>
-    <div className="field-group">
-      <label className="field-label">Tên Đồng Hành (Để trống nếu đơn thân)</label>
-      <input
-        className="field-input field-input--center"
-        value={char.followerName}
-        onChange={e => updateChar({ followerName: e.target.value })}
-        placeholder="Ví dụ: Trần Hổ"
-      />
-    </div>
-    {char.followerName && (
+// ── FOLLOWERS (God / Creator) ──
+const FollowersStep: React.FC<StepCtx> = ({ path, char, updateChar, updateFollowerAttr }) => {
+  const fAttrs = [
+    { key: 'power', name: 'Quyền Năng', min: 0, max: 100, default: 50 },
+    { key: 'loyalty', name: 'Trung Thành', min: 0, max: 100, default: 80 },
+    { key: 'wisdom', name: 'Trí Tuệ', min: 0, max: 100, default: 50 },
+  ];
+  return (
+    <div className="step-fields">
       <div className="field-group">
-        <label className="field-label">Bối cảnh đồng hành</label>
-        <textarea
-          className="field-textarea"
-          value={char.followerDesc}
-          onChange={e => updateChar({ followerDesc: e.target.value })}
-          placeholder="Mối quan hệ, khả năng, bối cảnh... Ví dụ: Bạn thanh mai trúc mã, giỏi cung thuật..."
-          rows={3}
+        <label className="field-label">
+          {path === 'creator' ? 'Tạo Vật Đầu Tiên (Tùy chọn)' : 'Thiên Sứ / Thủ Lĩnh Tín Đồ (Tùy chọn)'}
+        </label>
+        <input
+          className="field-input field-input--center"
+          value={char.followerName}
+          onChange={e => updateChar({ followerName: e.target.value })}
+          placeholder={path === 'creator' ? 'Tên của sứ giả hoặc thực thể đầu tiên' : 'Tên thiên sứ hoặc thủ lĩnh giáo đoàn'}
         />
       </div>
-    )}
-  </div>
-);
+      {char.followerName && (
+        <>
+          <div className="field-group">
+            <label className="field-label">Mô tả (Tùy chọn)</label>
+            <textarea
+              className="field-textarea"
+              value={char.followerDesc}
+              onChange={e => updateChar({ followerDesc: e.target.value })}
+              placeholder={path === 'creator' ? 'Thực thể này đại diện cho quy luật gì, mang sứ mệnh gì...' : 'Người này từng là..., sở hữu khả năng..., trung thành vì...'}
+              rows={3}
+            />
+          </div>
+          
+          <div className="attr-list" style={{ marginTop: '1.5rem' }}>
+            <h4 className="field-label" style={{ marginBottom: '1rem' }}>Chỉ Số {path === 'creator' ? 'Tạo Vật' : 'Thiên Sứ'}</h4>
+            {fAttrs.map(a => {
+              const val = char.followerAttributes?.[a.key] ?? a.default;
+              return (
+                <div key={a.key} className="attr-row">
+                  <div className="attr-row-header">
+                    <span className="attr-name">{a.name}</span>
+                    <input
+                      className="attr-number"
+                      type="number"
+                      min={a.min}
+                      max={a.max}
+                      value={val}
+                      onChange={e => updateFollowerAttr(a.key, Math.min(a.max, Math.max(a.min, Number(e.target.value))))}
+                    />
+                  </div>
+                  <input
+                    className="attr-slider"
+                    type="range"
+                    min={a.min}
+                    max={a.max}
+                    value={val}
+                    onChange={e => updateFollowerAttr(a.key, Number(e.target.value))}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ── COMPANION (Mortal) ──
+const CompanionStep: React.FC<StepCtx> = ({ char, updateChar, updateFollowerAttr }) => {
+  const cAttrs = [
+    { key: 'loyalty', name: 'Độ Tín Nhiệm', min: 0, max: 100, default: 80 },
+    { key: 'combat', name: 'Chiến Đấu', min: 0, max: 100, default: 50 },
+    { key: 'utility', name: 'Đa Dụng', min: 0, max: 100, default: 50 },
+  ];
+  return (
+    <div className="step-fields">
+      <p className="step-note">Trong loạn thế, một cây làm chẳng nên non. Ngươi có một đồng hành tâm phúc không?</p>
+      <div className="field-group">
+        <label className="field-label">Tên Đồng Hành (Để trống nếu đơn thân)</label>
+        <input
+          className="field-input field-input--center"
+          value={char.followerName}
+          onChange={e => updateChar({ followerName: e.target.value })}
+          placeholder="Ví dụ: Trần Hổ"
+        />
+      </div>
+      {char.followerName && (
+        <>
+          <div className="field-group">
+            <label className="field-label">Bối cảnh đồng hành</label>
+            <textarea
+              className="field-textarea"
+              value={char.followerDesc}
+              onChange={e => updateChar({ followerDesc: e.target.value })}
+              placeholder="Mối quan hệ, khả năng, bối cảnh... Ví dụ: Bạn thanh mai trúc mã, giỏi cung thuật..."
+              rows={3}
+            />
+          </div>
+
+          <div className="attr-list" style={{ marginTop: '1.5rem' }}>
+            <h4 className="field-label" style={{ marginBottom: '1rem' }}>Chỉ Số Đồng Hành</h4>
+            {cAttrs.map(a => {
+              const val = char.followerAttributes?.[a.key] ?? a.default;
+              return (
+                <div key={a.key} className="attr-row">
+                  <div className="attr-row-header">
+                    <span className="attr-name">{a.name}</span>
+                    <input
+                      className="attr-number"
+                      type="number"
+                      min={a.min}
+                      max={a.max}
+                      value={val}
+                      onChange={e => updateFollowerAttr(a.key, Math.min(a.max, Math.max(a.min, Number(e.target.value))))}
+                    />
+                  </div>
+                  <input
+                    className="attr-slider"
+                    type="range"
+                    min={a.min}
+                    max={a.max}
+                    value={val}
+                    onChange={e => updateFollowerAttr(a.key, Number(e.target.value))}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 // ── PREVIEW ──
 const PreviewStep: React.FC<StepCtx> = ({ path, char, traits: traitDefs, attributes, reputations, crises }) => {

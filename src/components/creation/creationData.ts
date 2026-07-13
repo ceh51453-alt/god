@@ -115,6 +115,8 @@ export const CREATOR_TRAITS: TraitDef[] = [
   { id: 'perfectionist', name: 'Hoàn Mỹ Chủ Nghĩa', description: 'Mỗi tạo vật phải là tuyệt tác', effects: 'Sáng Tạo +20, Trật Tự +15' },
   { id: 'experimentalist', name: 'Thí Nghiệm Gia', description: 'Tạo ra để xem chuyện gì xảy ra', effects: 'Hỗn Mang +20, Sáng Tạo +15' },
   { id: 'dual_nature', name: 'Nhị Nguyên Thể', description: 'Vừa sáng tạo vừa huỷ diệt, hai mặt song hành', effects: 'Sáng Tạo +15, Huỷ Diệt +15' },
+  { id: 'multiverse_sovereign', name: 'Độc Tôn Đa Chiều', description: 'Sự hiện diện vượt qua một vũ trụ đơn lẻ', effects: 'Toàn Tri +40, Sáng Tạo +20' },
+  { id: 'time_weaver', name: 'Nghịch Chuyển Thời Không', description: 'Thời gian là sợi chỉ để ngươi thêu dệt', effects: 'Trật Tự +15, Hỗn Mang +15, Huỷ Diệt +10' },
 ];
 
 export const GOD_TRAITS: TraitDef[] = [
@@ -167,11 +169,22 @@ export const MORTAL_REPUTATIONS = [
 
 /* ── Crises ── */
 
+export const CREATOR_DOMAINS = [
+  { id: 'void', name: 'Hạt Giống Hư Vô (Seed of Void)', description: 'Bắt đầu từ hư không tuyệt đối, tạo dựng từ không thành có. Khởi nguyên tĩnh mịch và sâu thẳm.', effects: 'Hỗn Mang +10, Huỷ Diệt +10' },
+  { id: 'chaos', name: 'Hạt Giống Hỗn Mang (Seed of Chaos)', description: 'Năng lượng hỗn loạn vô tận, luôn chực chờ bùng nổ, cần được uốn nắn thành hình.', effects: 'Hỗn Mang +20, Sáng Tạo +10' },
+  { id: 'dream', name: 'Hạt Giống Ảo Mộng (Seed of Dream)', description: 'Vạn vật là giấc mơ của ngươi, thực tại là ảo ảnh. Ranh giới thực hư không tồn tại.', effects: 'Toàn Tri +20, Từ Bi +10' },
+  { id: 'order', name: 'Hạt Giống Trật Tự (Seed of Order)', description: 'Khởi nguồn là những quy luật toán học và hình học hoàn hảo tuyệt đối.', effects: 'Trật Tự +30' },
+  { id: 'light', name: 'Hạt Giống Ánh Sáng (Seed of Light)', description: 'Tia sáng đầu tiên xé toạc bóng tối nguyên thủy, mang lại sự sống cháy bỏng.', effects: 'Sáng Tạo +20, Trật Tự +10' },
+  { id: 'custom', name: 'Tự Do Sáng Tạo', description: 'Nhập miền khởi nguyên theo ý ngươi...', effects: '' },
+];
+
 export const CREATOR_CRISES = [
   { id: 'void_hunger', name: 'Hư Vô Đói Khát', description: 'Hư vô nguyên thuỷ đang nuốt chửng mọi thứ ngươi tạo ra, ngươi phải tìm cách ổn định sáng tạo đầu tiên.' },
   { id: 'first_rebellion', name: 'Tạo Vật Nổi Loạn', description: 'Tạo vật đầu tiên của ngươi bắt đầu thách thức quyền năng sáng tạo, đòi tự do riêng.' },
   { id: 'cosmic_flaw', name: 'Lỗi Trong Quy Luật', description: 'Quy luật vũ trụ ngươi thiết lập có một lỗ hổng nghiêm trọng, đe dọa toàn bộ sáng tạo.' },
   { id: 'loneliness', name: 'Cô Đơn Vô Tận', description: 'Là đấng sáng tạo duy nhất, sự cô đơn vĩnh cửu bắt đầu ảnh hưởng đến tâm trí ngươi.' },
+  { id: 'entropy_collapse', name: 'Sụp Đổ Entropy', description: 'Một luồng Hỗn Mang không xác định đang đẩy nhanh quá trình diệt vong của các vì sao đầu tiên.' },
+  { id: 'outer_god_gaze', name: 'Ánh Nhìn Từ Ngoại Thần', description: 'Một thực thể ngoài ranh giới vũ trụ đã để mắt đến thế giới non trẻ của ngươi.' },
   { id: 'custom', name: 'Tự Định Nghĩa', description: 'Mô tả khủng hoảng theo ý ngươi...' },
 ];
 
@@ -204,8 +217,10 @@ export interface WizardStep {
 export const CREATOR_STEPS: WizardStep[] = [
   { id: 'identity', title: 'Danh Xưng Sáng Thế', subtitle: 'Đặt tên và mô tả bản chất thần thánh của ngươi' },
   { id: 'cosmic_domain', title: 'Miền Sáng Tạo', subtitle: 'Ngươi bắt đầu sáng tạo từ đâu?' },
+  { id: 'era', title: 'Kỷ Nguyên Khởi Thủy', subtitle: 'Thời điểm ngươi tỉnh giấc và bắt đầu sáng thế' },
   { id: 'attributes', title: 'Bản Chất & Thiên Phú', subtitle: 'Phác họa quyền năng sáng thế của ngươi' },
   { id: 'cosmos', title: 'Quy Luật Vũ Trụ', subtitle: 'Thiết lập luật lệ cho thế giới ngươi sáng tạo' },
+  { id: 'followers', title: 'Tạo Vật Đầu Tiên', subtitle: 'Thực thể hoặc sứ giả đầu tiên được ban sự sống' },
   { id: 'crisis', title: 'Thử Thách Khởi Đầu', subtitle: 'Mọi sáng tạo đều đối mặt khủng hoảng đầu tiên' },
   { id: 'preview', title: 'Tổng Quan', subtitle: 'Xem lại trước khi bước vào hư vô' },
 ];

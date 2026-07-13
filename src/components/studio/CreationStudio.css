@@ -456,14 +456,81 @@
    GENESIS WEB (sơ đồ liên kết mọi tạo vật)
    ═══════════════════════════════════════════════════════ */
 .gw { display: flex; flex-direction: column; gap: var(--space-3); }
+.gw-canvas-legacy {
+  background:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0 / 26px 26px,
+    var(--color-void);
+  max-height: 60vh;
+}
+
+/* ── Cosmic Dashboard ── */
+.studio-web-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.cosmic-dashboard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(15, 17, 23, 0.8);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(8px);
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
 .gw-canvas {
+  position: relative;
   overflow: auto;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background:
     radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0 / 26px 26px,
     var(--color-void);
-  max-height: 60vh;
+  min-height: 60vh;
+}
+
+.dashboard-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--wizard-accent, var(--text-primary));
+  text-transform: uppercase;
+  letter-spacing: var(--ls-wide);
+  margin-right: var(--space-6);
+}
+
+.dashboard-stats {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-val {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 1px;
 }
 .gw-svg { display: block; }
 .gw-col-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: var(--ls-wide); }

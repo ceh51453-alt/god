@@ -107,6 +107,8 @@ const KEY_FIELDS: Record<CategoryId, string[]> = {
   artifact: ['type', 'scale', 'rarity'],
   faith: ['type', 'morality'],
   deity: ['rank', 'moral'],
+  cosmic_event: ['era'],
+  divine_hierarchy: ['roles'],
 };
 
 export function summarizeStudioForAI(entities: StudioEntity[], maxChars = 2400): string {

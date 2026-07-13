@@ -25,7 +25,12 @@ const SAMPLING_PARAMS = [
   { key: 'presence_penalty', label: 'Presence Penalty', min: -2, max: 2, step: 0.1, default: 0 },
   { key: 'max_tokens', label: 'Max Tokens', min: 64, max: 32768, step: 64, default: 2048 },
   { key: 'max_context_tokens', label: 'Max Context', min: 1024, max: 131072, step: 1024, default: 8192 },
-] as const;
+];
+
+/** Auto-expand slider max so preset values aren't clipped */
+function getEffectiveMax(param: typeof SAMPLING_PARAMS[number], currentValue: number): number {
+  return Math.max(param.max, currentValue);
+}
 
 export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const {
@@ -377,7 +382,10 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
         {/* ── SAMPLING TAB ── */}
         {activeSection === 'sampling' && (
           <div className="conn-section animate-fadeIn">
-            {SAMPLING_PARAMS.map(param => (
+          {SAMPLING_PARAMS.map(param => {
+            const currentVal = profile.sampling[param.key as keyof typeof profile.sampling] as number;
+            const effectiveMax = getEffectiveMax(param, currentVal);
+            return (
               <div className="param-row" key={param.key}>
                 <div className="param-header">
                   <label className="input-label">{param.label}</label>
@@ -385,9 +393,9 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
                     className="input param-number"
                     type="number"
                     min={param.min}
-                    max={param.max}
+                    max={effectiveMax}
                     step={param.step}
-                    value={profile.sampling[param.key as keyof typeof profile.sampling] as number}
+                    value={currentVal}
                     onChange={e => updateProfile(profile.id, {
                       sampling: { ...profile.sampling, [param.key]: parseFloat(e.target.value) || 0 },
                     })}
@@ -397,9 +405,9 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
                   className="slider"
                   type="range"
                   min={param.min}
-                  max={param.max}
+                  max={effectiveMax}
                   step={param.step}
-                  value={profile.sampling[param.key as keyof typeof profile.sampling] as number}
+                  value={currentVal}
                   onChange={e => updateProfile(profile.id, {
                     sampling: { ...profile.sampling, [param.key]: parseFloat(e.target.value) || 0 },
                   })}
@@ -414,7 +422,8 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
                   <RefreshIcon size={12} />
                 </button>
               </div>
-            ))}
+            );
+          })}
 
             {/* Streaming toggle */}
             <div className="param-row">
@@ -469,7 +478,8 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
                   <div className="profile-info">
                     <span className="profile-name">{activePreset.name}</span>
                     <span className="profile-meta">
-                      {activePreset.prompts.length} khối lệnh (prompts)
+                      {activePreset.prompts.length} khối lệnh
+                      {activePreset.regexes.length > 0 && ` · ${activePreset.regexes.length} regex`}
                     </span>
                   </div>
                   <div className="profile-actions">

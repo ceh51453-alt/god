@@ -54,22 +54,39 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
 
   // ── 0. Load Preset ──
   const preset = usePresetStore.getState().activePreset;
-  let presetSystemContent = '';
-  let presetInChatContent = '';
+  let presetSystemBlocks: { content: string; identifier: string }[] = [];
+  let presetDepthBlocks: { content: string; depth: number; identifier: string }[] = [];
 
   if (preset) {
-    const sysPrompts = preset.prompts.filter(p => p.injection_position === 0);
-    sysPrompts.sort((a, b) => a.injection_order - b.injection_order);
-    presetSystemContent = sysPrompts.map(p => p.content).join('\n\n');
-    
-    const depthPrompts = preset.prompts.filter(p => p.injection_position === 1);
-    depthPrompts.sort((a, b) => a.injection_order - b.injection_order);
-    presetInChatContent = depthPrompts.map(p => p.content).join('\n\n');
+    // Sort blocks: use promptOrder if available, else injection_order
+    let orderedPrompts = [...preset.prompts];
+    if (preset.promptOrder && preset.promptOrder.length > 0) {
+      const orderMap = new Map(preset.promptOrder.map((id, idx) => [id, idx]));
+      orderedPrompts.sort((a, b) => {
+        const ia = orderMap.get(a.identifier) ?? 9999;
+        const ib = orderMap.get(b.identifier) ?? 9999;
+        return ia - ib;
+      });
+    } else {
+      orderedPrompts.sort((a, b) => a.injection_order - b.injection_order);
+    }
+
+    for (const p of orderedPrompts) {
+      if (p.injection_position === 0 || (p.injection_position as any) === undefined) {
+        // System-level blocks
+        presetSystemBlocks.push({ content: p.content, identifier: p.identifier });
+      } else if (p.injection_position === 1) {
+        // In-chat depth blocks
+        presetDepthBlocks.push({ content: p.content, depth: p.injection_depth || 0, identifier: p.identifier });
+      }
+    }
   }
 
   // ── 1. System prompt (mandatory) ──
   const systemBase = buildSystemPrompt(path, character);
   const mvuInstruction = buildMvuInstructionPrompt();
+  
+  const presetSystemContent = presetSystemBlocks.map(b => b.content).join('\n\n');
   
   const systemContent = presetSystemContent 
     ? `${presetSystemContent}\n\n--- HỆ THỐNG MVU GAME ---\n\n${systemBase}\n\n${mvuInstruction}`
@@ -114,9 +131,15 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
 
   result.push(...historyToAdd);
 
-  // Add preset in-chat content if exists
-  if (presetInChatContent) {
-    result.push({ role: 'system', content: presetInChatContent });
+  // ── 5b. Insert in-chat depth blocks at correct positions ──
+  if (presetDepthBlocks.length > 0) {
+    // injection_depth = number of messages from the end to insert before
+    // depth=0 means at the very end (just before user message)
+    // depth=1 means before the last message in history, etc.
+    for (const block of presetDepthBlocks) {
+      const insertIdx = Math.max(1, result.length - block.depth); // never before system prompt
+      result.splice(insertIdx, 0, { role: 'system', content: block.content });
+    }
   }
 
   // Add current user message
@@ -129,9 +152,10 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
         preset.regexes.forEach(rx => {
           try {
             const pattern = new RegExp(rx.pattern, rx.flags);
+            // Replacement đã qua JSON.parse nên \\n đã thành \n rồi
+            // Chỉ cần xử lý literal backslash-n còn sót (từ regex tag raw)
             const replacement = rx.replacement
               .replace(/\\n/g, '\n')
-              .replace(/\\r/g, '\r')
               .replace(/\\t/g, '\t');
             msg.content = msg.content.replace(pattern, replacement);
           } catch (e) {

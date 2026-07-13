@@ -5,8 +5,8 @@ export interface PresetPromptBlock {
   identifier: string;
   name: string;
   enabled: boolean;
-  injection_position: number;
-  injection_depth: number;
+  injection_position: number;  // 0 = system, 1 = in-chat depth
+  injection_depth: number;     // depth from end for in-chat blocks
   injection_order: number;
   role: 'system' | 'assistant' | 'user' | string;
   content: string;
@@ -25,7 +25,7 @@ export interface PresetData {
   name: string;
   prompts: PresetPromptBlock[];
   regexes: PresetRegex[];
-  originalJson: any;
+  promptOrder: string[];  // thứ tự identifier từ prompt_order
 }
 
 interface PresetStore {
@@ -42,6 +42,17 @@ interface CompileResult {
 }
 
 /**
+ * Chuẩn hóa injection_position:
+ * - Nếu undefined nhưng system_prompt=true → 0 (system)
+ * - Nếu undefined → 0 (mặc định)
+ */
+function normalizePosition(block: any): number {
+  if (typeof block.injection_position === 'number') return block.injection_position;
+  if (block.system_prompt) return 0;
+  return 0;
+}
+
+/**
  * Tiện ích: Xử lý macros SillyTavern cơ bản (setvar, getvar, regex)
  * Trả về mảng các block đã được resolve và mảng regex đã trích xuất.
  */
@@ -49,10 +60,13 @@ function compilePreset(prompts: PresetPromptBlock[]): CompileResult {
   const vars: Record<string, string> = {};
   const extractedRegexes: PresetRegex[] = [];
   
-  // 1. Lọc block enabled và chuẩn hóa content
+  // 1. Lọc block enabled, chuẩn hóa content & injection_position
   let activeBlocks = prompts.filter(p => p.enabled).map(p => ({
     ...p,
-    content: p.content || ''
+    content: p.content || '',
+    injection_position: normalizePosition(p),
+    injection_depth: typeof p.injection_depth === 'number' ? p.injection_depth : 0,
+    injection_order: typeof p.injection_order === 'number' ? p.injection_order : 100,
   }));
   
   // 2. Trích xuất <regex>
@@ -126,14 +140,29 @@ export const usePresetStore = create<PresetStore>()((set) => {
       
       const { prompts, regexes } = compilePreset(jsonData.prompts as PresetPromptBlock[]);
       
+      // Trích xuất prompt_order nếu có
+      let promptOrder: string[] = [];
+      if (Array.isArray(jsonData.prompt_order)) {
+        // prompt_order có thể là [{identifier, enabled}] hoặc [[charId, [{identifier, enabled}]]]
+        const rawOrder = jsonData.prompt_order;
+        if (rawOrder.length > 0 && Array.isArray(rawOrder[0])) {
+          // Format: [[charId, orderArray]]
+          const orderArr = rawOrder[0][1] || [];
+          promptOrder = orderArr.filter((o: any) => o.enabled).map((o: any) => o.identifier);
+        } else {
+          promptOrder = rawOrder.filter((o: any) => o.enabled).map((o: any) => o.identifier);
+        }
+      }
+      
       const preset: PresetData = {
         id: jsonData.id || filename,
         name: filename.replace('.json', ''),
         prompts,
         regexes,
-        originalJson: jsonData
+        promptOrder,
       };
       
+      // Chỉ lưu compiled data vào localStorage (không lưu originalJson ~1MB)
       localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(preset));
       set({ activePreset: preset });
 

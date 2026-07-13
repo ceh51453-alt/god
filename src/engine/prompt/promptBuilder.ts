@@ -14,6 +14,7 @@ import { staticRules } from '../mechanics/pathMechanics';
 import { summarizeStudioForAI } from '../studio/studioSync';
 import type { StudioEntity } from '@/components/studio/studioTypes';
 import { usePresetStore, applyPresetRegexes } from '@/stores/presetStore';
+import { activateLorebook } from '../lorebook/lorebookEngine';
 
 export interface PromptMessage {
   role: 'system' | 'user' | 'assistant';
@@ -130,6 +131,22 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
   charBudget -= settingsBlock.length;
   result[0].content += `\n\n${settingsBlock}`;
 
+  // ── 3d. Lorebook / World Info (kích hoạt theo key, constant, đệ quy...) ──
+  const loreScan = messages
+    .filter(m => m.role !== 'system' && !m.streaming)
+    .map(m => ({ role: m.role, content: m.content }));
+  loreScan.push({ role: 'user', content: userMessage });
+  const lore = activateLorebook(loreScan, statData._turnCount);
+  const wiParts = [
+    lore.injection.before, lore.injection.after,
+    lore.injection.anTop, lore.injection.anBottom,
+  ].filter(Boolean);
+  if (wiParts.length) {
+    const wiBlock = `\n\n=== SỔ TRI THỨC (WORLD INFO) ===\n${wiParts.join('\n\n')}`;
+    charBudget -= wiBlock.length;
+    result[0].content += wiBlock;
+  }
+
   // ── 4-5. Chat history (fill remaining budget) ──
   const chatMessages = messages
     .filter(m => m.role !== 'system' && !m.streaming)
@@ -160,14 +177,22 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
     }
   }
 
+  // ── 5c. Lorebook @depth blocks (role: system/user/assistant) ──
+  for (const block of lore.injection.depthBlocks) {
+    const roleName: PromptMessage['role'] = block.role === 1 ? 'user' : block.role === 2 ? 'assistant' : 'system';
+    const insertIdx = Math.max(1, result.length - block.depth);
+    result.splice(insertIdx, 0, { role: roleName, content: block.content });
+  }
+
   // Add current user message
   result.push({ role: 'user', content: userMessage });
 
-  // ── 6. Apply Preset Regexes to outgoing prompts ──
+  // ── 6. Apply Preset Regexes to outgoing prompts (theo vai) ──
   result.forEach(msg => {
-    if (msg.content) {
-      msg.content = applyPresetRegexes(msg.content);
-    }
+    if (!msg.content) return;
+    if (msg.role === 'assistant') msg.content = applyPresetRegexes(msg.content, 'ai-prompt');
+    else if (msg.role === 'user') msg.content = applyPresetRegexes(msg.content, 'user-prompt');
+    // system: giữ nguyên (preset đã tự lắp ráp)
   });
 
   return result;

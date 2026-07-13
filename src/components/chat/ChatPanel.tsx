@@ -11,6 +11,8 @@ import { extractStudioCreations } from '@/engine/studio/studioSync';
 import { useStudioStore } from '@/components/studio/studioStore';
 import { runEnrich } from '@/engine/studio/enrichEngine';
 import { useEnrichStore } from '@/stores/enrichStore';
+import { activateLorebook, commitLorebook, runLorebookMaintenance } from '@/engine/lorebook/lorebookEngine';
+import { useLorebookStore } from '@/stores/lorebookStore';
 import { NarrativeSegments } from './NarrativeTag';
 import { SendIcon, LoaderIcon, DivinePowerIcon } from '@/ui/icons';
 import { marked } from 'marked';
@@ -55,6 +57,8 @@ export const ChatPanel: React.FC = () => {
 
   const [inputText, setInputText] = useState('');
   const [autoTriggered, setAutoTriggered] = useState(false);
+  const [hideOld, setHideOld] = useState(true);   // chống lag: ẩn lượt cũ
+  const [rewinds, setRewinds] = useState(0);       // số lần đã quay lại (tối đa 3)
   const chatEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -103,6 +107,7 @@ export const ChatPanel: React.FC = () => {
       return;
     }
 
+    setRewinds(0); // lượt mới → reset bộ đếm quay lại
     addMessage({ role: 'user', content: userText });
     addMessage({ role: 'assistant', content: '', streaming: true });
     setStreaming(true);
@@ -189,6 +194,21 @@ export const ChatPanel: React.FC = () => {
           setStreaming(false);
           setRetrying(null);
           scrollToBottom();
+
+          // ── Lorebook: ghi runtime (sticky/cooldown/delay) + bảo trì cuối lượt ──
+          try {
+            const turn = useChatStore.getState().statData._turnCount;
+            const scan = useChatStore.getState().messages
+              .filter(m => m.role !== 'system' && !m.streaming)
+              .map(m => ({ role: m.role, content: m.content }));
+            const act = activateLorebook(scan, turn);
+            commitLorebook(act.activeUids, act.matchedDelayedUids, turn);
+          } catch { /* noop */ }
+          if (useLorebookStore.getState().settings.autoUpdate) {
+            runLorebookMaintenance(cleanText || stripped).catch(err =>
+              console.warn('[Lorebook] Background error:', err)
+            );
+          }
 
           // ── Auto-Enrich: bổ sung fields cho entity trong Xưởng Sáng Thế ──
           const enrichState = useEnrichStore.getState();
@@ -289,10 +309,47 @@ export const ChatPanel: React.FC = () => {
 
   const displayMessages = messages.filter(m => m.role !== 'system');
 
+  // ── Chống lag: chỉ render các lượt gần nhất khi bật ──
+  const RECENT_MSGS = 8; // ~4 lượt
+  const hiddenCount = hideOld ? Math.max(0, displayMessages.length - RECENT_MSGS) : 0;
+  const visibleMessages = hiddenCount > 0 ? displayMessages.slice(-RECENT_MSGS) : displayMessages;
+
+  // ── Quay lại lượt (tối đa 3) ──
+  const handleRewind = useCallback(() => {
+    if (isStreaming || rewinds >= 3) return;
+    const ok = useChatStore.getState().rewindOneTurn();
+    if (ok) setRewinds(r => r + 1);
+  }, [isStreaming, rewinds]);
+
   return (
     <div className="chat-panel" style={{ '--chat-accent': pathAccent } as React.CSSProperties}>
       {/* Messages */}
       <div className="chat-messages">
+        {displayMessages.length > 0 && (
+          <div className="chat-toolbar">
+            <button
+              className="chat-tool-btn"
+              disabled={isStreaming || rewinds >= 3}
+              onClick={handleRewind}
+              title="Quay lại lượt trước (tối đa 3 lượt gần nhất)"
+            >
+              ↶ Quay Lại{rewinds > 0 ? ` (${rewinds}/3)` : ''}
+            </button>
+            <button
+              className={`chat-tool-btn ${hideOld ? 'chat-tool-btn--on' : ''}`}
+              onClick={() => setHideOld(v => !v)}
+              title="Ẩn các lượt cũ để giảm lag khi hội thoại dài"
+              style={hideOld ? { color: pathAccent, borderColor: `${pathAccent}55` } : undefined}
+            >
+              {hideOld ? 'Ẩn Lượt Cũ: BẬT' : 'Ẩn Lượt Cũ: TẮT'}
+            </button>
+          </div>
+        )}
+        {hiddenCount > 0 && (
+          <button className="chat-loadmore" onClick={() => setHideOld(false)}>
+            Đang ẩn {hiddenCount} lượt cũ để chống lag — bấm để hiện tất cả
+          </button>
+        )}
         {displayMessages.length === 0 && (
           <div className="chat-empty">
             <div className="chat-empty-icon">
@@ -334,7 +391,7 @@ export const ChatPanel: React.FC = () => {
           </div>
         )}
 
-        {displayMessages.map((msg) => {
+        {visibleMessages.map((msg) => {
           // Parse narrative tags for assistant messages
           const segments = msg.role === 'assistant' && !msg.streaming
             ? parseNarrativeTags(msg.cleanContent || msg.content)

@@ -83,6 +83,8 @@ interface ChatState {
   applyMvuPatches: (patches: MvuPatchOp[]) => void;
   processAIResponse: (rawContent: string) => { cleanText: string; patches: MvuPatchOp[] };
   rollbackToTurn: (turn: number) => boolean;
+  /** Xóa lượt gần nhất (user + assistant) và khôi phục state 1 snapshot. */
+  rewindOneTurn: () => boolean;
 
   // Persistence
   saveToStorage: () => void;
@@ -362,6 +364,30 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       statData: rolledBack,
       game: { ...get().game, turnCount: turn },
     });
+    return true;
+  },
+
+  rewindOneTurn: () => {
+    const s = get();
+    const msgs = [...s.messages];
+    // Tìm assistant cuối cùng + user ngay trước nó
+    let ai = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i].role === 'assistant') { ai = i; break; } }
+    if (ai < 0) return false;
+    let ui = -1;
+    for (let i = ai - 1; i >= 0; i--) { if (msgs[i].role === 'user') { ui = i; break; } }
+    const cut = ui >= 0 ? ui : ai;
+    const newMsgs = msgs.slice(0, cut);
+    // Khôi phục state về 1 lượt trước (nếu có snapshot)
+    const targetTurn = Math.max(0, s.statData._turnCount - 1);
+    const restored = rollbackTo(targetTurn);
+    const newStat = restored ?? s.statData;
+    set({
+      messages: newMsgs,
+      statData: newStat,
+      game: { ...s.game, turnCount: newStat._turnCount },
+    });
+    if (s.game.gameStarted) saveToActiveSlot(s.game, newMsgs, newStat);
     return true;
   },
 

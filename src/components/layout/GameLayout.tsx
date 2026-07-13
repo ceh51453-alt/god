@@ -3,6 +3,7 @@ import { useChatStore, type ViewId } from '@/stores/chatStore';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import { ConnectionPanel } from '@/components/settings/ConnectionPanel';
 import { GameSettings } from '@/components/settings/GameSettings';
+import { LorebookPanel } from '@/components/lorebook/LorebookPanel';
 import { StatusPanel } from '@/components/game/StatusPanel';
 import { WorldView } from '@/components/game/WorldView';
 import { PowersView } from '@/components/game/PowersView';
@@ -94,6 +95,7 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ onBackToTitle }) => {
 
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [showGameSettings, setShowGameSettings] = React.useState(false);
+  const [showLorebook, setShowLorebook] = React.useState(false);
   const navItems = getNavItems(game.path);
   const pathAccent = game.path === 'creator' ? 'var(--accent-primary)' :
                      game.path === 'god' ? '#d4874a' :
@@ -150,6 +152,16 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ onBackToTitle }) => {
             aria-label="Status"
           >
             <DivinePowerIcon size={16} color={showStatusPanel ? pathAccent : 'var(--text-muted)'} />
+          </button>
+          <button
+            className="btn btn-icon"
+            onClick={() => setShowLorebook(true)}
+            aria-label="Sổ Tri Thức"
+            title="Sổ Tri Thức (Lorebook / World Info)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5C4 18.1 5.1 17 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+            </svg>
           </button>
           <button
             className="btn btn-icon"
@@ -250,6 +262,15 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ onBackToTitle }) => {
         <div className="modal-overlay" onClick={() => setShowGameSettings(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <GameSettings onClose={() => setShowGameSettings(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Lorebook Modal */}
+      {showLorebook && (
+        <div className="modal-overlay" onClick={() => setShowLorebook(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <LorebookPanel onClose={() => setShowLorebook(false)} />
           </div>
         </div>
       )}

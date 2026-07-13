@@ -19,6 +19,44 @@
   gap: var(--space-4);
 }
 
+/* ── Chat toolbar (quay lại / ẩn lượt cũ) ── */
+.chat-toolbar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-bottom: var(--space-1);
+}
+.chat-tool-btn {
+  font-size: var(--fs-xs);
+  padding: 3px var(--space-3);
+  color: var(--text-muted);
+  background: var(--glass-bg-heavy);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  backdrop-filter: blur(var(--blur-strength));
+  transition: all var(--duration-fast) var(--ease-smooth);
+  white-space: nowrap;
+}
+.chat-tool-btn:hover:not(:disabled) { border-color: var(--glass-border-light); color: var(--text-secondary); }
+.chat-tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-loadmore {
+  align-self: center;
+  font-size: var(--fs-xs);
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--glass-border-light);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-smooth);
+}
+.chat-loadmore:hover { color: var(--text-secondary); background: rgba(255, 255, 255, 0.06); }
+
 /* ── Empty State ── */
 .chat-empty {
   display: flex;

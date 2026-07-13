@@ -13,11 +13,19 @@ export interface PresetPromptBlock {
   system_prompt: boolean;
 }
 
+export type RegexScope = 'ai-display' | 'ai-prompt' | 'user-prompt';
+
 export interface PresetRegex {
   order: number;
+  scriptName: string;
   pattern: string;
   flags: string;
   replacement: string;
+  targetUser: boolean;    // placement [1] — áp lên tin nhắn người dùng
+  targetAI: boolean;      // placement [2] — áp lên phản hồi AI
+  promptOnly: boolean;    // chỉ đổi prompt gửi đi (không đổi hiển thị/lưu)
+  displayOnly: boolean;   // markdownOnly — chỉ đổi hiển thị, không đổi prompt
+  trimStrings: string[];
 }
 
 export interface PresetData {
@@ -60,8 +68,8 @@ function compilePreset(prompts: PresetPromptBlock[]): CompileResult {
   const vars: Record<string, string> = {};
   const extractedRegexes: PresetRegex[] = [];
   
-  // 1. Lọc block enabled, chuẩn hóa content & injection_position
-  let activeBlocks = prompts.filter(p => p.enabled).map(p => ({
+  // 1. Lọc block enabled (undefined coi như bật), chuẩn hóa content & injection_position
+  let activeBlocks = prompts.filter(p => p.enabled !== false).map(p => ({
     ...p,
     content: p.content || '',
     injection_position: normalizePosition(p),
@@ -78,9 +86,15 @@ function compilePreset(prompts: PresetPromptBlock[]): CompileResult {
     while ((match = regexTag.exec(block.content)) !== null) {
       extractedRegexes.push({
         order: parseInt(match[1] || '0', 10),
+        scriptName: 'inline',
         pattern: match[2],
         flags: match[3],
-        replacement: match[4]
+        replacement: match[4],
+        targetUser: false,
+        targetAI: true,
+        promptOnly: false,
+        displayOnly: false,
+        trimStrings: [],
       });
     }
     // Xóa <regex> tags
@@ -121,15 +135,63 @@ function compilePreset(prompts: PresetPromptBlock[]): CompileResult {
 }
 
 /**
- * Áp dụng các regex đã trích xuất từ preset lên một đoạn text.
- * Dùng để biến đổi cả prompt (trước khi gửi) và response (sau khi nhận).
+ * Tách `findRegex` kiểu SillyTavern (thường là "/pattern/flags") thành pattern + flags.
  */
-export function applyPresetRegexes(text: string): string {
+function parseFindRegex(findRegex: string): { pattern: string; flags: string } {
+  const m = /^\/([\s\S]*)\/([a-z]*)$/i.exec(findRegex.trim());
+  if (m) return { pattern: m[1], flags: m[2] || '' };
+  return { pattern: findRegex, flags: '' };
+}
+
+/** ST dùng {{match}} cho toàn bộ khớp; JS dùng $&. */
+function convertReplacement(r: string): string {
+  return (r || '').replace(/\{\{match\}\}/g, '$&');
+}
+
+/**
+ * Nạp regex từ extensions.regex_scripts (SillyTavern) → PresetRegex[].
+ * placement: 1 = tin nhắn người dùng, 2 = phản hồi AI.
+ */
+function parseRegexScripts(scripts: any[]): PresetRegex[] {
+  const out: PresetRegex[] = [];
+  scripts.forEach((s, i) => {
+    if (!s || s.disabled || !s.findRegex) return;
+    const { pattern, flags } = parseFindRegex(String(s.findRegex));
+    const gflags = flags.includes('g') ? flags : flags + 'g';
+    const placement: number[] = Array.isArray(s.placement) ? s.placement : [];
+    out.push({
+      order: 1000 + i, // sau các regex inline
+      scriptName: s.scriptName || `regex_${i}`,
+      pattern,
+      flags: gflags,
+      replacement: convertReplacement(s.replaceString ?? ''),
+      targetUser: placement.includes(1),
+      targetAI: placement.includes(2),
+      promptOnly: !!s.promptOnly,
+      displayOnly: !!s.markdownOnly,
+      trimStrings: Array.isArray(s.trimStrings) ? s.trimStrings : [],
+    });
+  });
+  return out;
+}
+
+/**
+ * Áp dụng regex của preset lên một đoạn text theo PHẠM VI:
+ * - 'ai-display'  : làm sạch phản hồi AI để hiển thị & lưu (placement AI, không promptOnly)
+ * - 'ai-prompt'   : biến đổi phản hồi AI khi đưa vào ngữ cảnh gửi lại (placement AI, không displayOnly)
+ * - 'user-prompt' : biến đổi tin nhắn người dùng khi gửi (placement user, không displayOnly)
+ */
+export function applyPresetRegexes(text: string, scope: RegexScope = 'ai-display'): string {
   const preset = usePresetStore.getState().activePreset;
   if (!preset?.regexes || preset.regexes.length === 0) return text;
 
   let result = text;
-  for (const rx of preset.regexes) {
+  for (const rx of [...preset.regexes].sort((a, b) => a.order - b.order)) {
+    // Lọc theo phạm vi
+    if (scope === 'ai-display' && (!rx.targetAI || rx.promptOnly)) continue;
+    if (scope === 'ai-prompt' && (!rx.targetAI || rx.displayOnly)) continue;
+    if (scope === 'user-prompt' && (!rx.targetUser || rx.displayOnly)) continue;
+
     try {
       const pattern = new RegExp(rx.pattern, rx.flags);
       const replacement = rx.replacement
@@ -137,7 +199,7 @@ export function applyPresetRegexes(text: string): string {
         .replace(/\\t/g, '\t');
       result = result.replace(pattern, replacement);
     } catch (e) {
-      console.error('Failed to apply regex:', rx, e);
+      console.error('Failed to apply regex:', rx.scriptName, e);
     }
   }
   return result;
@@ -162,7 +224,13 @@ export const usePresetStore = create<PresetStore>()((set) => {
       }
       
       const { prompts, regexes } = compilePreset(jsonData.prompts as PresetPromptBlock[]);
-      
+
+      // Nạp thêm regex từ extensions.regex_scripts (nơi SillyTavern thực sự lưu regex)
+      const scriptRegexes = Array.isArray(jsonData?.extensions?.regex_scripts)
+        ? parseRegexScripts(jsonData.extensions.regex_scripts)
+        : [];
+      const allRegexes: PresetRegex[] = [...regexes, ...scriptRegexes];
+
       // Trích xuất prompt_order nếu có
       let promptOrder: string[] = [];
       if (Array.isArray(jsonData.prompt_order)) {
@@ -181,7 +249,7 @@ export const usePresetStore = create<PresetStore>()((set) => {
         id: jsonData.id || filename,
         name: filename.replace('.json', ''),
         prompts,
-        regexes,
+        regexes: allRegexes,
         promptOrder,
       };
       

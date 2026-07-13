@@ -3,6 +3,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useShallow } from 'zustand/react/shallow';
 import { sendChat } from '@/engine/api/apiClient';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { applyPresetRegexes } from '@/stores/presetStore';
 import { getOpeningPrompt } from '@/engine/rag/ragEngine';
 import { buildPrompt, estimatePromptTokens } from '@/engine/prompt/promptBuilder';
 import { parseNarrativeTags } from '@/engine/narrative/tagParser';
@@ -127,8 +128,11 @@ export const ChatPanel: React.FC = () => {
           scrollToBottom();
         },
         onDone: (full) => {
+          // ── Apply Preset Regexes to AI response ──
+          const regexed = applyPresetRegexes(full);
+
           // ── Auto-ghi tạo vật vào Xưởng Sáng Thế (chỉ Sáng Thế Thần) ──
-          const { text: stripped, creations } = extractStudioCreations(full);
+          const { text: stripped, creations } = extractStudioCreations(regexed);
           if (path === 'creator' && creations.length > 0) {
             for (const c of creations) {
               const studio = useStudioStore.getState();

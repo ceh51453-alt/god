@@ -11,7 +11,7 @@ import type { GamePath, CharacterData } from '@/components/creation/creationData
 import { renderStateForAI, buildMvuInstructionPrompt } from '../mvu/stateRenderer';
 import { buildRAGContext } from '../rag/ragEngine';
 import { staticRules } from '../mechanics/pathMechanics';
-import { usePresetStore } from '@/stores/presetStore';
+import { usePresetStore, applyPresetRegexes } from '@/stores/presetStore';
 
 export interface PromptMessage {
   role: 'system' | 'user' | 'assistant';
@@ -145,26 +145,12 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
   // Add current user message
   result.push({ role: 'user', content: userMessage });
 
-  // ── 6. Apply Preset Regexes ──
-  if (preset?.regexes && preset.regexes.length > 0) {
-    result.forEach(msg => {
-      if (msg.content) {
-        preset.regexes.forEach(rx => {
-          try {
-            const pattern = new RegExp(rx.pattern, rx.flags);
-            // Replacement đã qua JSON.parse nên \\n đã thành \n rồi
-            // Chỉ cần xử lý literal backslash-n còn sót (từ regex tag raw)
-            const replacement = rx.replacement
-              .replace(/\\n/g, '\n')
-              .replace(/\\t/g, '\t');
-            msg.content = msg.content.replace(pattern, replacement);
-          } catch (e) {
-            console.error('Failed to apply regex:', rx, e);
-          }
-        });
-      }
-    });
-  }
+  // ── 6. Apply Preset Regexes to outgoing prompts ──
+  result.forEach(msg => {
+    if (msg.content) {
+      msg.content = applyPresetRegexes(msg.content);
+    }
+  });
 
   return result;
 }

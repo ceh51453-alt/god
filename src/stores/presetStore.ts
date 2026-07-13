@@ -120,6 +120,29 @@ function compilePreset(prompts: PresetPromptBlock[]): CompileResult {
   };
 }
 
+/**
+ * Áp dụng các regex đã trích xuất từ preset lên một đoạn text.
+ * Dùng để biến đổi cả prompt (trước khi gửi) và response (sau khi nhận).
+ */
+export function applyPresetRegexes(text: string): string {
+  const preset = usePresetStore.getState().activePreset;
+  if (!preset?.regexes || preset.regexes.length === 0) return text;
+
+  let result = text;
+  for (const rx of preset.regexes) {
+    try {
+      const pattern = new RegExp(rx.pattern, rx.flags);
+      const replacement = rx.replacement
+        .replace(/\\n/g, '\n')
+        .replace(/\\t/g, '\t');
+      result = result.replace(pattern, replacement);
+    } catch (e) {
+      console.error('Failed to apply regex:', rx, e);
+    }
+  }
+  return result;
+}
+
 export const usePresetStore = create<PresetStore>()((set) => {
   // Thử load từ localStorage khi khởi tạo
   let initialPreset: PresetData | null = null;

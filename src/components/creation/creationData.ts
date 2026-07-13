@@ -46,7 +46,6 @@ export interface CharacterData {
   cosmicRules: string;     // Creator: quy luật vũ trụ
   pantheonName: string;    // Creator: tên thần hệ
   appearance: string;      // ngoại hình
-  avatar?: string;         // ảnh chân dung (base64)
 }
 
 export const defaultCharacter: CharacterData = {
@@ -74,7 +73,6 @@ export const defaultCharacter: CharacterData = {
   cosmicRules: '',
   pantheonName: '',
   appearance: '',
-  avatar: '',
 };
 
 /* ── Attributes per path ── */

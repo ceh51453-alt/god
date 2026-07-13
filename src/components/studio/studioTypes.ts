@@ -167,6 +167,10 @@ export const CATEGORIES: CategoryDef[] = [
       { id: 'dominant', label: 'Nguyên tố / Vật liệu chủ đạo', type: 'relations', relationTo: 'material', hint: 'Chọn từ Nguyên Tố & Vật Liệu đã tạo' },
       { id: 'laws', label: 'Quy luật vận hành', type: 'relations', relationTo: 'law' },
       { id: 'inhabitants', label: 'Chủng loài cư ngụ', type: 'relations', relationTo: 'species' },
+      { id: 'planes', label: 'Cấu trúc tầng / cõi', type: 'graph', full: true, graph: {
+        mode: 'tree', titleLabel: 'Tầng / Cõi', metaLabel: 'Vị trí / lối vào',
+        detailLabel: 'Cảnh quan & cư dân', addLabel: 'Thêm tầng / cõi', rootHint: 'Cõi gốc',
+      }},
       { id: 'lore', label: 'Truyền thuyết khởi nguyên', type: 'textarea', full: true },
     ],
     presets: [
@@ -174,6 +178,11 @@ export const CATEGORIES: CategoryDef[] = [
         tagline: 'Chín tầng trời chồng lên nhau, càng cao linh khí càng đậm.',
         type: 'Thiên Giới', scale: 'Vũ Trụ', timeFlow: '1 ngày thiên giới = 1 năm hạ giới',
         environment: 'Chín tầng mây bậc thang, mỗi tầng một cảnh sắc, cầu vồng nối liền các thiên cung.',
+        planes: [
+          { title: 'Hạ Thiên (Tầng 1-3)', meta: 'Ngay trên nhân gian', detail: 'Tiểu thần & tiên nhân sơ nhập, linh khí mỏng' },
+          { title: 'Trung Thiên (Tầng 4-6)', meta: 'Qua Nam Thiên Môn', detail: 'Cung điện mây của chính thần, linh khí đậm đặc' },
+          { title: 'Thượng Thiên (Tầng 7-9)', meta: 'Chỉ chủ thần lên nổi', detail: 'Nơi ngự của Thiên Đế, quy luật gốc hiển lộ' },
+        ],
       }},
       { name: 'Tinh Cầu Lam', values: {
         tagline: 'Một hành tinh nước xanh biếc, sự sống bùng nổ trong đại dương.',
@@ -216,6 +225,10 @@ export const CATEGORIES: CategoryDef[] = [
       { id: 'effect', label: 'Cơ chế vận hành', type: 'textarea', full: true, placeholder: 'Quy luật này ảnh hưởng thế giới ra sao?' },
       { id: 'exception', label: 'Ngoại lệ & Kẽ hở', type: 'textarea', full: true },
       { id: 'penalty', label: 'Hình phạt khi phạm luật', type: 'textarea', full: true, placeholder: 'Kẻ nghịch thiên phải trả giá gì?' },
+      { id: 'clauses', label: 'Điều khoản & Ngoại lệ', type: 'graph', full: true, graph: {
+        mode: 'tree', titleLabel: 'Điều khoản', metaLabel: 'Điều kiện áp dụng',
+        detailLabel: 'Hiệu lực cụ thể', addLabel: 'Thêm điều khoản', rootHint: 'Nguyên tắc gốc',
+      }},
     ],
     presets: [
       { name: 'Luật Cân Bằng Đẳng Giá', values: {
@@ -223,6 +236,11 @@ export const CATEGORIES: CategoryDef[] = [
         domain: 'Nhân Quả', scope: 'Toàn Bộ Tồn Tại', immutable: 'Tuyệt đối — không gì phá nổi',
         effect: 'Mọi phép thuật, sáng tạo đều tiêu hao vật chất/năng lượng tương đương. Không có gì sinh ra từ hư vô.',
         penalty: 'Kẻ cố lấy nhiều hơn cái giá bỏ ra sẽ bị chính quy luật thu hồi phần thân thể hoặc linh hồn tương ứng.',
+        clauses: [
+          { title: 'Bảo toàn tổng lượng', meta: 'Mọi sáng tạo / phép thuật', detail: 'Tổng vật chất-năng lượng của vũ trụ không đổi' },
+          { title: 'Ngoại lệ Hỗn Độn Phẩm', meta: 'Vật chất cấp Hỗn Độn', detail: 'Được sinh một lượng nhỏ từ hư vô' },
+          { title: 'Nợ đẳng giá', meta: 'Lấy trước trả sau', detail: 'Được vay, nhưng lãi tính bằng thọ nguyên / linh hồn' },
+        ],
       }},
       { name: 'Vòng Luân Hồi', values: {
         tagline: 'Không linh hồn nào thực sự chết; chúng tái sinh theo nghiệp lực.',
@@ -269,6 +287,10 @@ export const CATEGORIES: CategoryDef[] = [
         'Nhẹ như lông', 'Biến hình', 'Phát sáng', 'Cách nhiệt tuyệt đối', 'Khắc chế linh hồn',
       ]},
       { id: 'source', label: 'Nguồn gốc / Nơi khai thác', type: 'text', full: true, placeholder: 'Lõi sao băng, mạch ngầm núi lửa, xác thần thú...' },
+      { id: 'refine', label: 'Chuỗi tinh luyện', type: 'graph', full: true, graph: {
+        mode: 'chain', titleLabel: 'Dạng / Cấp luyện', metaLabel: 'Phương pháp chế',
+        detailLabel: 'Tính chất mới', numeric: 'Phẩm', addLabel: 'Thêm cấp luyện', rootHint: 'Quặng thô',
+      }},
       { id: 'lore', label: 'Ghi chú & Truyền thuyết', type: 'textarea', full: true },
     ],
     presets: [
@@ -285,6 +307,11 @@ export const CATEGORIES: CategoryDef[] = [
         stats: { hardness: 85, spirit: 40, durability: 80, purity: 60, energy: 15 },
         properties: ['Dẫn linh', 'Cách nhiệt tuyệt đối'],
         source: 'Mạch quặng sâu dưới lòng núi lửa đã tắt ngàn năm.',
+        refine: [
+          { title: 'Quặng Huyền Thiết', meta: 'Khai thác thô', detail: 'Nặng, lẫn nhiều tạp chất', num: 1 },
+          { title: 'Huyền Thiết Tinh', meta: 'Luyện lửa tam muội 49 ngày', detail: 'Loại tạp, dẫn linh tốt hơn hẳn', num: 3 },
+          { title: 'Huyền Thiết Mẫu', meta: 'Ngâm long huyết trăm năm', detail: 'Tự phục hồi, đủ phẩm rèn thần binh', num: 5 },
+        ],
       }},
       { name: 'Long Cốt', values: {
         tagline: 'Xương của rồng cổ, vẫn còn cuộn tàn dư của long uy.',
@@ -487,6 +514,10 @@ export const CATEGORIES: CategoryDef[] = [
         'Thiêu đốt', 'Băng phong', 'Hút linh hồn', 'Tự tu phục', 'Nhận chủ',
         'Vô hình', 'Xuyên giáp', 'Hồi sinh', 'Phong ấn', 'Không gian chứa đồ', 'Tăng tu vi',
       ]},
+      { id: 'awaken', label: 'Chuỗi thăng cấp / thức tỉnh', type: 'graph', full: true, graph: {
+        mode: 'chain', titleLabel: 'Hình thái', metaLabel: 'Điều kiện thăng cấp',
+        detailLabel: 'Uy năng mới mở khóa', numeric: 'Cấp', addLabel: 'Thêm hình thái', rootHint: 'Sơ khởi',
+      }},
       { id: 'powerSource', label: 'Vận hành bằng hệ sức mạnh', type: 'relations', relationTo: 'power' },
       { id: 'requirement', label: 'Điều kiện sử dụng', type: 'text', full: true, placeholder: 'Cảnh giới, huyết mạch, khế ước...' },
       { id: 'lore', label: 'Lai lịch & Truyền thuyết', type: 'textarea', full: true },
@@ -513,6 +544,11 @@ export const CATEGORIES: CategoryDef[] = [
         stats: { attack: 98, defense: 20, durability: 85, spirit: 80 },
         enchant: ['Xuyên giáp', 'Hút linh hồn', 'Nhận chủ'],
         requirement: 'Người cầm phải có đạo tâm kiên định, nếu không sẽ bị kiếm ý phản phệ.',
+        awaken: [
+          { title: 'Phàm Kiếm', meta: 'Vừa rèn xong', detail: 'Sắc bén hơn thường, chưa có kiếm linh', num: 1 },
+          { title: 'Linh Kiếm', meta: 'Uống máu trăm trận', detail: 'Kiếm linh thức tỉnh, tự tìm yếu điểm địch', num: 3 },
+          { title: 'Thí Thần', meta: 'Chém đứt thần cách một vị thần', detail: 'Cắt đứt cả quy luật & thần tính, vô vật bất phá', num: 5 },
+        ],
       }},
     ],
   },
@@ -541,6 +577,10 @@ export const CATEGORIES: CategoryDef[] = [
         'Rửa tội', 'Chay tịnh', 'Lễ hội mùa', 'Xây đền', 'Truyền giáo',
       ]},
       { id: 'faithPower', label: 'Đức tin sinh sức mạnh thế nào', type: 'textarea', full: true, placeholder: 'Niềm tin chuyển hóa thành thần lực, phép màu, phúc lành ra sao?' },
+      { id: 'sects', label: 'Cây giáo phái', type: 'graph', full: true, graph: {
+        mode: 'tree', titleLabel: 'Giáo phái / Nhánh', metaLabel: 'Ly khai vì',
+        detailLabel: 'Khác biệt giáo lý & thực hành', addLabel: 'Thêm giáo phái', rootHint: 'Chính thống',
+      }},
       { id: 'morality', label: 'Khuynh hướng đạo đức', type: 'select', options: [
         { value: 'Thuần Thiện / Trật Tự' }, { value: 'Trung Dung' }, { value: 'Thực Dụng' },
         { value: 'Cực Đoan' }, { value: 'Hắc Ám / Hỗn Loạn' },
@@ -558,6 +598,11 @@ export const CATEGORIES: CategoryDef[] = [
         faithPower: 'Lòng thành tụ thành Thánh Lực, cho phép giáo sĩ trị thương, trừ tà, ban phúc lành.',
         morality: 'Thuần Thiện / Trật Tự', scale: 'Đại Lục',
         taboos: 'Cấm giao thiệp với ma tộc; kẻ bội giáo bị coi là Kẻ Sa Ngã.',
+        sects: [
+          { title: 'Chính Thống Giáo Hội', meta: 'Dòng chính', detail: 'Giáo lý nguyên bản, quyền lực tập trung ở Giáo Hoàng' },
+          { title: 'Phái Khổ Tu', meta: 'Chê giáo hội xa hoa', detail: 'Sống khắc khổ, tự hành xác để thanh tẩy linh hồn' },
+          { title: 'Dị Đoan Hoàng Hôn', meta: 'Lén thờ cả Bóng Tối', detail: 'Bị coi là tà giáo, hành lễ trong bí mật' },
+        ],
       }},
       { name: 'Đạo Vô Vi', values: {
         tagline: 'Thuận theo tự nhiên, vô vi nhi trị, hòa mình vào Đại Đạo.',

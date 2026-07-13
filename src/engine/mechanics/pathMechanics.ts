@@ -120,7 +120,9 @@ Khi ngươi sáng tạo một thứ đáng lưu vào Xưởng — thế giới, 
 {"category":"<world|law|material|power|species|artifact|faith>","name":"...","tagline":"một câu bản chất","fields":{ ...vài trường chính... }}
 </StudioCreate>
 Ví dụ trường chính theo loại: world→{type,scale,environment}; power→{paradigm,energy,mechanism}; species→{basis,kingdom,baseForm,traits:[...]}; material→{class,rarity,properties:[...]}; artifact→{type,rarity,enchant:[...]}; faith→{type,creed,practices:[...]}; law→{domain,scope,effect}.
-Chỉ dùng giá trị chuỗi/mảng chuỗi cho fields. Mỗi thực thể MỚI chỉ ghi MỘT lần.`.trim();
+Chỉ dùng giá trị chuỗi/mảng chuỗi cho fields.
+- Tạo MỚI: ghi một lần khi thực thể lần đầu xuất hiện.
+- CẬP NHẬT/tiến hóa thực thể đã có: phát lại <StudioCreate> với ĐÚNG "category" và "name" cũ, chỉ kèm các trường thay đổi/bổ sung — hệ thống sẽ hợp nhất, không tạo trùng.`.trim();
 
     case 'god':
       return `

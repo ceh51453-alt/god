@@ -10,7 +10,10 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
-    open: true,
+    // Bind IPv4 loopback so browser tooling (which uses 127.0.0.1) can reach it.
+    host: '127.0.0.1',
+    // Honor the PORT assigned by the launcher; fall back to 3000 for plain `npm run dev`.
+    port: Number(process.env.PORT) || 3000,
+    open: false,
   },
 });

@@ -438,6 +438,55 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
                 <div className="toggle-thumb" />
               </button>
             </div>
+
+            {/* Thinking toggle */}
+            <div className="param-row">
+              <label className="input-label" style={{ flex: 1 }}>
+                Thinking Mode
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', fontWeight: 400 }}>
+                  Cho model suy nghĩ trước khi viết
+                </span>
+              </label>
+              <button
+                className={`toggle ${profile.sampling.thinking ? 'toggle--on' : ''}`}
+                onClick={() => updateProfile(profile.id, {
+                  sampling: { ...profile.sampling, thinking: !profile.sampling.thinking },
+                })}
+              >
+                <div className="toggle-thumb" />
+              </button>
+            </div>
+
+            {/* Thinking Budget — only show when thinking enabled */}
+            {profile.sampling.thinking && (
+              <div className="param-row" style={{ animation: 'fadeIn 0.2s ease-out' }}>
+                <div className="param-header">
+                  <label className="input-label">Thinking Budget (tokens)</label>
+                  <input
+                    className="input param-number"
+                    type="number"
+                    min={1000}
+                    max={128000}
+                    step={1000}
+                    value={profile.sampling.thinkingBudget}
+                    onChange={e => updateProfile(profile.id, {
+                      sampling: { ...profile.sampling, thinkingBudget: parseInt(e.target.value) || 10000 },
+                    })}
+                  />
+                </div>
+                <input
+                  className="slider"
+                  type="range"
+                  min={1000}
+                  max={128000}
+                  step={1000}
+                  value={profile.sampling.thinkingBudget}
+                  onChange={e => updateProfile(profile.id, {
+                    sampling: { ...profile.sampling, thinkingBudget: parseInt(e.target.value) || 10000 },
+                  })}
+                />
+              </div>
+            )}
           </div>
         )}
 

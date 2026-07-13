@@ -26,8 +26,8 @@ function renderMarkdown(text: string): string {
 
 export const ChatPanel: React.FC = () => {
   const {
-    messages, isStreaming, streamingText, retryingAttempt, retryingMax,
-    addMessage, setStreaming, appendStreamText, setRetrying,
+    messages, isStreaming, streamingText, streamingThinkingText, retryingAttempt, retryingMax,
+    addMessage, setStreaming, appendStreamText, appendStreamThinkingText, setRetrying,
     updateLastAssistantMessage, game, setGame,
     statData, processAIResponse, initStatData,
     pendingDecree, setPendingDecree,
@@ -35,11 +35,13 @@ export const ChatPanel: React.FC = () => {
     messages: s.messages,
     isStreaming: s.isStreaming,
     streamingText: s.streamingText,
+    streamingThinkingText: s.streamingThinkingText,
     retryingAttempt: s.retryingAttempt,
     retryingMax: s.retryingMax,
     addMessage: s.addMessage,
     setStreaming: s.setStreaming,
     appendStreamText: s.appendStreamText,
+    appendStreamThinkingText: s.appendStreamThinkingText,
     setRetrying: s.setRetrying,
     updateLastAssistantMessage: s.updateLastAssistantMessage,
     game: s.game,
@@ -117,6 +119,7 @@ export const ChatPanel: React.FC = () => {
       character: game.character,
       messages: currentState.messages.filter(m => !m.streaming),
       userMessage: userText,
+      studioEntities: useStudioStore.getState().entities,
     });
 
     const tokenEst = estimatePromptTokens(promptMessages);
@@ -129,7 +132,11 @@ export const ChatPanel: React.FC = () => {
           appendStreamText(chunk);
           scrollToBottom();
         },
-        onDone: (full) => {
+        onThinkingChunk: (chunk) => {
+          appendStreamThinkingText(chunk);
+          scrollToBottom();
+        },
+        onDone: (full, thinkingText) => {
           // ── Apply Preset Regexes to AI response ──
           const regexed = applyPresetRegexes(full);
 
@@ -138,11 +145,22 @@ export const ChatPanel: React.FC = () => {
           if (path === 'creator' && creations.length > 0) {
             for (const c of creations) {
               const studio = useStudioStore.getState();
-              const dup = studio.entities.some(
+              const existing = studio.entities.find(
                 e => e.category === c.category &&
                   e.name.trim().toLowerCase() === c.name.trim().toLowerCase()
               );
-              if (!dup) studio.add(c);
+              if (existing) {
+                // Cập nhật: chỉ ghi đè trường AI cung cấp không rỗng
+                const merged = { ...existing.values };
+                for (const [k, v] of Object.entries(c.values)) {
+                  const emptyStr = typeof v === 'string' && v.trim() === '';
+                  const emptyArr = Array.isArray(v) && v.length === 0;
+                  if (!emptyStr && !emptyArr) merged[k] = v;
+                }
+                studio.update(existing.id, { values: merged });
+              } else {
+                studio.add(c);
+              }
             }
           }
 
@@ -151,8 +169,21 @@ export const ChatPanel: React.FC = () => {
 
           // If no patches were extracted, just update the message normally
           if (patches.length === 0) {
-            updateLastAssistantMessage(cleanText || stripped);
+            updateLastAssistantMessage(cleanText || stripped, thinkingText || undefined);
             setGame({ turnCount: game.turnCount + 1 });
+          } else {
+            // processAIResponse already updates message; but need to add thinkingText
+            if (thinkingText) {
+              const store = useChatStore.getState();
+              const msgs = [...store.messages];
+              for (let i = msgs.length - 1; i >= 0; i--) {
+                if (msgs[i].role === 'assistant') {
+                  msgs[i] = { ...msgs[i], thinkingText };
+                  break;
+                }
+              }
+              useChatStore.setState({ messages: msgs });
+            }
           }
 
           setStreaming(false);
@@ -185,7 +216,7 @@ export const ChatPanel: React.FC = () => {
       setStreaming(false);
       setRetrying(null);
     }
-  }, [path, game, addMessage, setStreaming, appendStreamText,
+  }, [path, game, addMessage, setStreaming, appendStreamText, appendStreamThinkingText,
       updateLastAssistantMessage, setRetrying, scrollToBottom, setGame,
       processAIResponse, statData]);
 
@@ -206,10 +237,11 @@ export const ChatPanel: React.FC = () => {
 
   const handleAbort = useCallback(() => {
     abortRef.current?.abort();
+    const thinkingSnap = useChatStore.getState().streamingThinkingText || undefined;
     setStreaming(false);
     setRetrying(null);
     if (streamingText) {
-      updateLastAssistantMessage(streamingText + '\n\n[Gián đoạn]');
+      updateLastAssistantMessage(streamingText + '\n\n[Gián đoạn]', thinkingSnap);
     }
   }, [setStreaming, setRetrying, streamingText, updateLastAssistantMessage]);
 
@@ -333,17 +365,44 @@ export const ChatPanel: React.FC = () => {
                   {msg.role === 'user' ? (game.godName || 'Ngươi') : 'Vận Mệnh'}
                 </span>
                 {msg.streaming && isStreaming ? (
-                  <div
-                    className="chat-msg-text"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingText || '') }}
-                  />
+                  <>
+                    {streamingThinkingText && (
+                      <ThinkingBlock
+                        content={streamingThinkingText}
+                        isStreaming={true}
+                        accentColor={pathAccent}
+                      />
+                    )}
+                    <div
+                      className="chat-msg-text"
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingText || '') }}
+                    />
+                  </>
                 ) : segments ? (
-                  <NarrativeSegments segments={segments} />
+                  <>
+                    {msg.thinkingText && (
+                      <ThinkingBlock
+                        content={msg.thinkingText}
+                        isStreaming={false}
+                        accentColor={pathAccent}
+                      />
+                    )}
+                    <NarrativeSegments segments={segments} />
+                  </>
                 ) : (
-                  <div
-                    className="chat-msg-text"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
-                  />
+                  <>
+                    {msg.thinkingText && (
+                      <ThinkingBlock
+                        content={msg.thinkingText}
+                        isStreaming={false}
+                        accentColor={pathAccent}
+                      />
+                    )}
+                    <div
+                      className="chat-msg-text"
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                    />
+                  </>
                 )}
                 {msg.streaming && isStreaming && (
                   <span className="chat-cursor" style={{ background: pathAccent }} />
@@ -425,6 +484,57 @@ export const ChatPanel: React.FC = () => {
           )}
         </div>
       </div>
+    </div>
+  );
+};
+/* ── Thinking Block ── */
+const ThinkingBlock: React.FC<{
+  content: string;
+  isStreaming: boolean;
+  accentColor: string;
+}> = ({ content, isStreaming, accentColor }) => {
+  const [isOpen, setIsOpen] = React.useState(isStreaming);
+
+  // Auto-open when streaming starts, close when done
+  React.useEffect(() => {
+    if (isStreaming) setIsOpen(true);
+  }, [isStreaming]);
+
+  const wordCount = content.split(/\s+/).filter(Boolean).length;
+
+  return (
+    <div className={`chat-thinking ${isStreaming ? 'chat-thinking--streaming' : ''}`}>
+      <button
+        className="chat-thinking-toggle"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ '--thinking-accent': accentColor } as React.CSSProperties}
+      >
+        <svg
+          className={`chat-thinking-icon ${isStreaming ? 'chat-thinking-icon--pulse' : ''}`}
+          width="14" height="14" viewBox="0 0 24 24"
+          fill="none" stroke={accentColor} strokeWidth="1.5"
+        >
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+          <path d="M12 6c-2.2 0-4 1.8-4 4 0 1.5.8 2.7 2 3.4V15h4v-1.6c1.2-.7 2-1.9 2-3.4 0-2.2-1.8-4-4-4z" />
+          <path d="M10 17h4M10 19h4" />
+        </svg>
+        <span className="chat-thinking-label">
+          {isStreaming ? 'Đang suy nghĩ...' : `Suy nghĩ (${wordCount} từ)`}
+        </span>
+        <svg
+          className={`chat-thinking-chevron ${isOpen ? 'chat-thinking-chevron--open' : ''}`}
+          width="12" height="12" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div
+          className="chat-thinking-content"
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+        />
+      )}
     </div>
   );
 };

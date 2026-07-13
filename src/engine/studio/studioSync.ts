@@ -5,7 +5,7 @@
    ═══════════════════════════════════════════════════════ */
 
 import {
-  CATEGORIES, blankEntity,
+  CATEGORIES, blankEntity, asStr,
   type StudioEntity, type CategoryId, type FieldValue,
 } from '@/components/studio/studioTypes';
 
@@ -91,4 +91,55 @@ export function extractStudioCreations(raw: string): StudioSyncResult {
     }
   }
   return { text, creations };
+}
+
+/* ═══════════════════════════════════════════════════════
+   Tóm tắt Xưởng cho AI — để AI "biết" thế giới đã dựng
+   ═══════════════════════════════════════════════════════ */
+
+/** Vài trường cốt lõi hiển thị kèm mỗi thực thể, theo phân hệ */
+const KEY_FIELDS: Record<CategoryId, string[]> = {
+  world: ['type', 'scale'],
+  law: ['domain', 'scope'],
+  material: ['class', 'rarity'],
+  power: ['paradigm', 'energy'],
+  species: ['basis', 'kingdom'],
+  artifact: ['type', 'rarity'],
+  faith: ['type', 'morality'],
+};
+
+export function summarizeStudioForAI(entities: StudioEntity[], maxChars = 2400): string {
+  if (!entities.length) return '';
+
+  const byCat = new Map<CategoryId, StudioEntity[]>();
+  for (const e of entities) {
+    if (!byCat.has(e.category)) byCat.set(e.category, []);
+    byCat.get(e.category)!.push(e);
+  }
+
+  const lines: string[] = [
+    '=== XƯỞNG SÁNG THẾ — THẾ GIỚI NGƯƠI ĐÃ DỰNG ===',
+    '(Đây là SỰ THẬT về vũ trụ. Hãy dùng đúng tên & thuộc tính này khi kể; có thể mở rộng nhưng KHÔNG mâu thuẫn.)',
+  ];
+
+  for (const cat of CATEGORIES) {
+    const list = byCat.get(cat.id);
+    if (!list || list.length === 0) continue;
+    lines.push(`# ${cat.plural}:`);
+    for (const e of list) {
+      const tag = asStr(e.values.tagline);
+      const meta = KEY_FIELDS[cat.id]
+        .map(id => asStr(e.values[id]))
+        .filter(Boolean)
+        .join(', ');
+      const bits = [`- ${e.name || 'Vô Danh'}`];
+      if (meta) bits.push(`[${meta}]`);
+      if (tag) bits.push(`— ${tag}`);
+      lines.push(bits.join(' '));
+    }
+  }
+
+  let out = lines.join('\n');
+  if (out.length > maxChars) out = out.slice(0, maxChars) + '\n…(và nhiều hơn nữa)';
+  return out;
 }

@@ -170,7 +170,14 @@ export const StatDataSchema = z.object({
     difficulty: z.enum(['easy', 'balanced', 'realistic']).default('balanced'),
     narrativeMode: z.enum(['guided', 'freeform']).default('freeform'),
     playerCentric: z.boolean().default(true),
-  }).default(() => ({ difficulty: 'balanced' as const, narrativeMode: 'freeform' as const, playerCentric: true })),
+    narrativeStyle: z.enum(['epic', 'dark', 'romantic', 'humorous', 'gritty', 'poetic']).default('epic'),
+    responseLength: z.enum(['short', 'medium', 'long']).default('medium'),
+    maturity: z.enum(['safe', 'mature']).default('safe'),
+    pacing: z.enum(['slow', 'normal', 'fast']).default('normal'),
+  }).default(() => ({
+    difficulty: 'balanced' as const, narrativeMode: 'freeform' as const, playerCentric: true,
+    narrativeStyle: 'epic' as const, responseLength: 'medium' as const, maturity: 'safe' as const, pacing: 'normal' as const,
+  })),
 
   // Engine readonly
   _turnCount: z.number().int().default(0),
@@ -191,7 +198,10 @@ export const StatDataSchema = z.object({
   npcs: {}, entities: {}, quests: {},
   companion: { name: '', description: '', attributes: {} },
   timeline: [],
-  settings: { difficulty: 'balanced' as const, narrativeMode: 'freeform' as const, playerCentric: true },
+  settings: {
+    difficulty: 'balanced' as const, narrativeMode: 'freeform' as const, playerCentric: true,
+    narrativeStyle: 'epic' as const, responseLength: 'medium' as const, maturity: 'safe' as const, pacing: 'normal' as const,
+  },
   _turnCount: 0, _seed: 0, _version: 1,
 }));
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { useChatStore, type ViewId } from '@/stores/chatStore';
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import { ConnectionPanel } from '@/components/settings/ConnectionPanel';
+import { GameSettings } from '@/components/settings/GameSettings';
 import { StatusPanel } from '@/components/game/StatusPanel';
 import { WorldView } from '@/components/game/WorldView';
 import { PowersView } from '@/components/game/PowersView';
@@ -92,6 +93,7 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ onBackToTitle }) => {
   const game = useChatStore(s => s.game);
 
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [showGameSettings, setShowGameSettings] = React.useState(false);
   const navItems = getNavItems(game.path);
   const pathAccent = game.path === 'creator' ? 'var(--accent-primary)' :
                      game.path === 'god' ? '#d4874a' :
@@ -148,6 +150,16 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ onBackToTitle }) => {
             aria-label="Status"
           >
             <DivinePowerIcon size={16} color={showStatusPanel ? pathAccent : 'var(--text-muted)'} />
+          </button>
+          <button
+            className="btn btn-icon"
+            onClick={() => setShowGameSettings(true)}
+            aria-label="Thiết lập trò chơi"
+            title="Thiết lập trò chơi (văn phong, độ dài, độ khó)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.6" strokeLinecap="round">
+              <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
+            </svg>
           </button>
           <button
             className="btn btn-icon"
@@ -229,6 +241,15 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ onBackToTitle }) => {
         <div className="modal-overlay" onClick={() => setShowSettings(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <ConnectionPanel onClose={() => setShowSettings(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Game Settings Modal */}
+      {showGameSettings && (
+        <div className="modal-overlay" onClick={() => setShowGameSettings(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <GameSettings onClose={() => setShowGameSettings(false)} />
           </div>
         </div>
       )}

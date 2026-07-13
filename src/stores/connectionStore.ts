@@ -15,6 +15,8 @@ export interface SamplingParams {
   streaming: boolean;
   seed: number | null;
   stop_sequences: string[];
+  thinking: boolean;
+  thinkingBudget: number;
 }
 
 export interface ConnectionProfile {
@@ -45,6 +47,8 @@ const defaultSampling: SamplingParams = {
   streaming: true,
   seed: null,
   stop_sequences: [],
+  thinking: false,
+  thinkingBudget: 10000,
 };
 
 const createDefaultProfile = (id?: string): ConnectionProfile => ({

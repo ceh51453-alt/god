@@ -16,6 +16,7 @@ export interface ChatMessage {
   content: string;
   rawContent?: string;        // Original AI response (before tag stripping)
   cleanContent?: string;      // Narrative text (after tag stripping)
+  thinkingText?: string;      // AI thinking/reasoning content
   timestamp: number;
   streaming?: boolean;
   retryCount?: number;
@@ -41,6 +42,7 @@ interface ChatState {
   messages: ChatMessage[];
   isStreaming: boolean;
   streamingText: string;
+  streamingThinkingText: string;
   retryingAttempt: number | null;
   retryingMax: number | null;
 
@@ -61,9 +63,10 @@ interface ChatState {
 
   // Actions
   addMessage: (msg: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  updateLastAssistantMessage: (content: string) => void;
+  updateLastAssistantMessage: (content: string, thinkingText?: string) => void;
   setStreaming: (streaming: boolean, text?: string) => void;
   appendStreamText: (chunk: string) => void;
+  appendStreamThinkingText: (chunk: string) => void;
   setRetrying: (attempt: number | null, max?: number | null) => void;
   clearMessages: () => void;
 
@@ -72,6 +75,7 @@ interface ChatState {
   setActiveView: (view: ViewId) => void;
   setShowStatusPanel: (show: boolean) => void;
   setPendingDecree: (text: string | null) => void;
+  updateSettings: (partial: Partial<StatData['settings']>) => void;
   setActiveSlot: (id: string | null) => void;
 
   // MVU Actions
@@ -175,6 +179,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   messages: [],
   isStreaming: false,
   streamingText: '',
+  streamingThinkingText: '',
   retryingAttempt: null,
   retryingMax: null,
 
@@ -208,11 +213,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }, 100);
   },
 
-  updateLastAssistantMessage: (content) => set(state => {
+  updateLastAssistantMessage: (content, thinkingText) => set(state => {
     const msgs = [...state.messages];
     for (let i = msgs.length - 1; i >= 0; i--) {
       if (msgs[i].role === 'assistant') {
-        msgs[i] = { ...msgs[i], content, streaming: false };
+        msgs[i] = {
+          ...msgs[i],
+          content,
+          streaming: false,
+          ...(thinkingText != null && { thinkingText }),
+        };
         break;
       }
     }
@@ -222,10 +232,15 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   setStreaming: (streaming, text = '') => set({
     isStreaming: streaming,
     streamingText: streaming ? text : '',
+    streamingThinkingText: streaming ? '' : '',
   }),
 
   appendStreamText: (chunk) => set(state => ({
     streamingText: state.streamingText + chunk,
+  })),
+
+  appendStreamThinkingText: (chunk) => set(state => ({
+    streamingThinkingText: state.streamingThinkingText + chunk,
   })),
 
   setRetrying: (attempt, max = null) => set({
@@ -249,6 +264,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   setActiveView: (view) => set({ activeView: view }),
   setShowStatusPanel: (show) => set({ showStatusPanel: show }),
   setPendingDecree: (text) => set({ pendingDecree: text }),
+
+  updateSettings: (partial) => {
+    set(state => ({
+      statData: { ...state.statData, settings: { ...state.statData.settings, ...partial } },
+    }));
+    const s = get();
+    if (s.game.gameStarted) saveToActiveSlot(s.game, s.messages, s.statData);
+  },
   setActiveSlot: (id) => {
     set({ activeSlotId: id });
     if (id) setActiveSlotId(id);

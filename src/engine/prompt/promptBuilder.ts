@@ -11,6 +11,8 @@ import type { GamePath, CharacterData } from '@/components/creation/creationData
 import { renderStateForAI, buildMvuInstructionPrompt } from '../mvu/stateRenderer';
 import { buildRAGContext } from '../rag/ragEngine';
 import { staticRules } from '../mechanics/pathMechanics';
+import { summarizeStudioForAI } from '../studio/studioSync';
+import type { StudioEntity } from '@/components/studio/studioTypes';
 import { usePresetStore, applyPresetRegexes } from '@/stores/presetStore';
 
 export interface PromptMessage {
@@ -29,6 +31,8 @@ interface PromptBuildOptions {
   messages: ChatMessage[];
   /** Current user message */
   userMessage: string;
+  /** Studio creations to inject as world context (Creator path) */
+  studioEntities?: StudioEntity[];
   /** Approximate token budget (chars * 0.3 ≈ tokens) */
   maxContextChars?: number;
 }
@@ -46,7 +50,7 @@ interface PromptBuildOptions {
 export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
   const {
     statData, path, character, messages,
-    userMessage, maxContextChars = 30000,
+    userMessage, studioEntities = [], maxContextChars = 30000,
   } = options;
 
   const result: PromptMessage[] = [];
@@ -111,6 +115,20 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
     // Inject as a system-level addition
     result[0].content += `\n${ragContext}`;
   }
+
+  // ── 3b. Studio world context (Creator path) ──
+  if (path === 'creator' && studioEntities.length > 0) {
+    const studioBlock = summarizeStudioForAI(studioEntities);
+    if (studioBlock) {
+      charBudget -= studioBlock.length;
+      result[0].content += `\n\n${studioBlock}`;
+    }
+  }
+
+  // ── 3c. Narrative style & game settings ──
+  const settingsBlock = renderSettingsForAI(statData.settings);
+  charBudget -= settingsBlock.length;
+  result[0].content += `\n\n${settingsBlock}`;
 
   // ── 4-5. Chat history (fill remaining budget) ──
   const chatMessages = messages
@@ -189,6 +207,49 @@ ${charName}${character.mortalClass ? ` là ${character.mortalClass}` : ''} trong
   return [intros[path] ?? '', commonRules, staticRules(path)]
     .filter(Boolean)
     .join('\n\n');
+}
+
+/**
+ * Render narrative style & game settings into an instruction block.
+ */
+function renderSettingsForAI(s: StatData['settings']): string {
+  const style: Record<string, string> = {
+    epic: 'SỬ THI — hùng tráng, giàu hình ảnh, khí thế',
+    dark: 'U ÁM — nặng nề, bi tráng, ám ảnh',
+    romantic: 'LÃNG MẠN — giàu cảm xúc, tinh tế, tình cảm',
+    humorous: 'HÀI HƯỚC — dí dỏm, nhẹ nhàng, châm biếm duyên dáng',
+    gritty: 'TRẦN TRỤI — thực tế, khốc liệt, không tô hồng',
+    poetic: 'THI VỊ — bay bổng, ẩn dụ, đậm chất thơ',
+  };
+  const len: Record<string, string> = {
+    short: 'NGẮN GỌN (2-3 đoạn súc tích)',
+    medium: 'VỪA PHẢI (3-5 đoạn)',
+    long: 'DÀI & CHI TIẾT (5+ đoạn, đào sâu cảm xúc và bối cảnh)',
+  };
+  const pace: Record<string, string> = {
+    slow: 'CHẬM RÃI — tập trung chi tiết, nội tâm, không vội',
+    normal: 'CÂN BẰNG',
+    fast: 'NHANH — dồn dập sự kiện, đẩy cốt truyện tiến nhanh',
+  };
+  const diff: Record<string, string> = {
+    easy: 'DỄ — ưu ái người chơi, ít trừng phạt',
+    balanced: 'CÂN BẰNG — công bằng, có rủi ro thật',
+    realistic: 'THỰC TẾ — hệ quả nghiêm khắc, sai lầm phải trả giá',
+  };
+  const lines = [
+    '=== PHONG CÁCH & THIẾT LẬP KỂ CHUYỆN (tuân thủ) ===',
+    `Văn phong: ${style[s.narrativeStyle] ?? s.narrativeStyle}.`,
+    `Độ dài phản hồi: ${len[s.responseLength] ?? s.responseLength}.`,
+    `Nhịp truyện: ${pace[s.pacing] ?? s.pacing}.`,
+    `Độ khó: ${diff[s.difficulty] ?? s.difficulty}.`,
+    s.narrativeMode === 'guided'
+      ? 'Chế độ DẪN DẮT: luôn gợi ý 2-3 lựa chọn rõ ràng ở cuối mỗi lượt.'
+      : 'Chế độ TỰ DO: để người chơi tự quyết, không ép buộc lựa chọn.',
+    s.maturity === 'mature'
+      ? 'Nội dung NGƯỜI LỚN: cho phép chủ đề nặng, bạo lực, đen tối khi hợp cảnh (vẫn bám hướng người chơi).'
+      : 'Nội dung AN TOÀN: tránh mô tả quá bạo lực hay nhạy cảm.',
+  ];
+  return lines.join('\n');
 }
 
 /**

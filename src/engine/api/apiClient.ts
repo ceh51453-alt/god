@@ -7,7 +7,8 @@ import { useConnectionStore, type ConnectionProfile, type ProviderPreset } from 
 interface ApiRequestOptions {
   messages: Array<{ role: string; content: string }>;
   onChunk?: (text: string) => void;
-  onDone?: (fullText: string) => void;
+  onThinkingChunk?: (text: string) => void;
+  onDone?: (fullText: string, thinkingText: string) => void;
   onError?: (error: Error) => void;
   signal?: AbortSignal;
 }
@@ -76,7 +77,7 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
     case 'anthropic': {
       const systemMsg = messages.find(m => m.role === 'system');
       const chatMsgs = messages.filter(m => m.role !== 'system');
-      return {
+      const body: Record<string, unknown> = {
         model: profile.selectedModel || 'claude-3-5-sonnet-20240620',
         max_tokens: sampling.max_tokens,
         system: systemMsg?.content || '',
@@ -87,10 +88,22 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
         stream: sampling.streaming,
         ...(sampling.stop_sequences.length > 0 && { stop_sequences: sampling.stop_sequences }),
       };
+      if (sampling.thinking) {
+        body.thinking = { type: 'enabled', budget_tokens: sampling.thinkingBudget };
+        // Anthropic requires temperature=1 when thinking is enabled
+        delete body.temperature;
+        delete body.top_p;
+        delete body.top_k;
+        // max_tokens must be larger than budget_tokens
+        if (sampling.max_tokens <= sampling.thinkingBudget) {
+          body.max_tokens = sampling.thinkingBudget + sampling.max_tokens;
+        }
+      }
+      return body;
     }
 
     case 'google': {
-      return {
+      const body: Record<string, unknown> = {
         contents: messages.map(m => ({
           role: m.role === 'assistant' ? 'model' : m.role === 'system' ? 'user' : m.role,
           parts: [{ text: m.content }],
@@ -101,12 +114,14 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
           topK: sampling.top_k || undefined,
           maxOutputTokens: sampling.max_tokens,
           ...(sampling.stop_sequences.length > 0 && { stopSequences: sampling.stop_sequences }),
+          ...(sampling.thinking && { thinkingConfig: { thinkingBudget: sampling.thinkingBudget } }),
         },
       };
+      return body;
     }
 
-    default: // openai, custom
-      return {
+    default: { // openai, custom
+      const body: Record<string, unknown> = {
         model: profile.selectedModel || 'gpt-4o-mini',
         messages,
         temperature: sampling.temperature,
@@ -120,22 +135,31 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
         ...(sampling.seed !== null && { seed: sampling.seed }),
         ...(sampling.stop_sequences.length > 0 && { stop: sampling.stop_sequences }),
       };
+      if (sampling.thinking) {
+        // OpenAI-compatible reasoning (works with o1, o3, deepseek-r1, etc.)
+        body.include_reasoning = true;
+      }
+      return body;
+    }
   }
 }
-
 /** Parse SSE stream from different providers */
 async function parseSSEStream(
   response: Response,
   provider: ProviderPreset,
   onChunk: (text: string) => void,
   signal?: AbortSignal,
-): Promise<string> {
+  onThinkingChunk?: (text: string) => void,
+): Promise<{ fullText: string; thinkingText: string }> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error('No response body');
 
   const decoder = new TextDecoder();
   let buffer = '';
   let fullText = '';
+  let thinkingText = '';
+  // Track current Anthropic content block type
+  let currentBlockType: 'text' | 'thinking' | null = null;
 
   try {
     while (true) {
@@ -159,20 +183,58 @@ async function parseSSEStream(
         try {
           const json = JSON.parse(trimmed.slice(6));
           let chunk = '';
+          let thinkingChunk = '';
 
           switch (provider) {
             case 'anthropic':
-              if (json.type === 'content_block_delta') {
-                chunk = json.delta?.text || '';
+              // Track content block type for thinking vs text
+              if (json.type === 'content_block_start') {
+                currentBlockType = json.content_block?.type === 'thinking' ? 'thinking' : 'text';
+              } else if (json.type === 'content_block_stop') {
+                currentBlockType = null;
+              } else if (json.type === 'content_block_delta') {
+                if (currentBlockType === 'thinking' && json.delta?.thinking) {
+                  thinkingChunk = json.delta.thinking;
+                } else if (json.delta?.text) {
+                  chunk = json.delta.text;
+                }
               }
               break;
-            case 'google':
-              chunk = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            case 'google': {
+              // Google Gemini: check for thought in parts
+              const parts = json.candidates?.[0]?.content?.parts;
+              if (Array.isArray(parts)) {
+                for (const part of parts) {
+                  if (part.thought && part.text) {
+                    thinkingChunk += part.text;
+                  } else if (part.text) {
+                    chunk += part.text;
+                  }
+                }
+              }
               break;
-            default: // openai
-              chunk = json.choices?.[0]?.delta?.content || '';
+            }
+            default: { // openai
+              // Check for reasoning_content (DeepSeek, o1, o3, etc.)
+              const delta = json.choices?.[0]?.delta;
+              if (delta) {
+                if (delta.reasoning_content) {
+                  thinkingChunk = delta.reasoning_content;
+                } else if (delta.reasoning) {
+                  thinkingChunk = delta.reasoning;
+                }
+                if (delta.content) {
+                  chunk = delta.content;
+                }
+              }
+              break;
+            }
           }
 
+          if (thinkingChunk) {
+            thinkingText += thinkingChunk;
+            onThinkingChunk?.(thinkingChunk);
+          }
           if (chunk) {
             fullText += chunk;
             onChunk(chunk);
@@ -186,7 +248,7 @@ async function parseSSEStream(
     reader.releaseLock();
   }
 
-  return fullText;
+  return { fullText, thinkingText };
 }
 
 /** Determine if an error is retryable */
@@ -309,27 +371,49 @@ export async function sendChat(
 
       // Streaming response
       if (profile.sampling.streaming && response.headers.get('content-type')?.includes('text/event-stream')) {
-        const fullText = await parseSSEStream(response, profile.provider, (chunk) => {
+        const { fullText, thinkingText } = await parseSSEStream(response, profile.provider, (chunk) => {
           options.onChunk?.(chunk);
-        }, options.signal);
-        options.onDone?.(fullText);
+        }, options.signal, options.onThinkingChunk);
+        options.onDone?.(fullText, thinkingText);
         return fullText;
       }
 
       // Non-streaming response
       const data = await response.json();
       let text = '';
+      let thinkingText = '';
       switch (profile.provider) {
-        case 'anthropic':
-          text = data.content?.[0]?.text || '';
+        case 'anthropic': {
+          // Anthropic returns array of content blocks; separate thinking from text
+          const blocks = data.content || [];
+          for (const block of blocks) {
+            if (block.type === 'thinking') {
+              thinkingText += block.thinking || '';
+            } else if (block.type === 'text') {
+              text += block.text || '';
+            }
+          }
           break;
-        case 'google':
-          text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        }
+        case 'google': {
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          for (const part of parts) {
+            if (part.thought && part.text) {
+              thinkingText += part.text;
+            } else if (part.text) {
+              text += part.text;
+            }
+          }
           break;
-        default:
-          text = data.choices?.[0]?.message?.content || '';
+        }
+        default: {
+          const msg = data.choices?.[0]?.message;
+          text = msg?.content || '';
+          thinkingText = msg?.reasoning_content || msg?.reasoning || '';
+          break;
+        }
       }
-      options.onDone?.(text);
+      options.onDone?.(text, thinkingText);
       return text;
 
     } catch (err) {

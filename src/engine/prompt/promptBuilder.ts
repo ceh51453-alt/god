@@ -88,12 +88,25 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
     }
   }
 
+  const charName = character.name || 'người chơi';
+  const aiName = preset?.name?.replace(/丨.*$/i, '')?.trim() || 'Vận Mệnh'; // e.g. Tawa丨Ω Ver (2) -> Tawa
+
+  // Replace macros in preset blocks
+  const replaceMacros = (text: string) => {
+    return text
+      .replace(/\{\{user\}\}/gi, charName)
+      .replace(/\{\{char\}\}/gi, aiName)
+      // Tawa specific mapping:
+      .replace(/<user>/gi, charName);
+  };
+
   // ── 1. System prompt (mandatory) ──
   const systemBase = buildSystemPrompt(path, character);
   const mvuInstruction = buildMvuInstructionPrompt();
   
-  const presetSystemContent = presetSystemBlocks.map(b => b.content).join('\n\n');
+  const presetSystemContent = replaceMacros(presetSystemBlocks.map(b => b.content).join('\n\n'));
   
+  // Combine system instructions: Preset First, then MVU
   const systemContent = presetSystemContent 
     ? `${presetSystemContent}\n\n--- HỆ THỐNG MVU GAME ---\n\n${systemBase}\n\n${mvuInstruction}`
     : `${systemBase}\n\n${mvuInstruction}`;
@@ -181,7 +194,7 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
     // depth=1 means before the last message in history, etc.
     for (const block of presetDepthBlocks) {
       const insertIdx = Math.max(1, result.length - block.depth); // never before system prompt
-      result.splice(insertIdx, 0, { role: 'system', content: block.content });
+      result.splice(insertIdx, 0, { role: 'system', content: replaceMacros(block.content) });
     }
   }
 

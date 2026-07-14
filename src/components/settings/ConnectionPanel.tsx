@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useConnectionStore, type ProviderPreset } from '@/stores/connectionStore';
-import { usePresetStore } from '@/stores/presetStore';
+import { usePresetStore, type PresetPromptBlock } from '@/stores/presetStore';
 import { useEnrichStore, type EnrichProxySource, type EnrichTrigger, type EnrichSampling, DEFAULT_SAMPLING } from '@/stores/enrichStore';
 import { useShallow } from 'zustand/react/shallow';
 import { scanModels, testConnection, maskKey } from '@/engine/api/apiClient';
@@ -57,11 +57,20 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
   })));
 
   const profile = getActiveProfile();
-  const { activePreset, loadPreset, clearPreset } = usePresetStore(useShallow(s => ({
+  const { activePreset, loadPreset, clearPreset, updatePromptBlock, updatePresetSettings, updateRegexScript } = usePresetStore(useShallow(s => ({
     activePreset: s.activePreset,
     loadPreset: s.loadPreset,
     clearPreset: s.clearPreset,
+    updatePromptBlock: s.updatePromptBlock,
+    updatePresetSettings: s.updatePresetSettings,
+    updateRegexScript: s.updateRegexScript,
   })));
+  const handleUpdatePromptBlock = useCallback((id: string, updates: any) => {
+    updatePromptBlock?.(id, updates);
+  }, [updatePromptBlock]);
+  const handleUpdateRegexScript = useCallback((index: number, updates: any) => {
+    updateRegexScript?.(index, updates);
+  }, [updateRegexScript]);
   const [showKeys, setShowKeys] = useState(false);
   const [modelFilter, setModelFilter] = useState('');
   const [activeSection, setActiveSection] = useState<'connection' | 'proxy' | 'sampling' | 'profiles' | 'preset' | 'enrich' | 'enrich-params'>('connection');
@@ -573,13 +582,68 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
             </div>
             {activePreset && (
               <span className="input-hint" style={{ fontSize: '0.85rem', color: 'var(--accent-success)', marginTop: '8px', display: 'block', lineHeight: 1.4 }}>
-                Preset đã được nạp thành công. Trí tuệ nhân tạo sẽ tự động tuân theo văn phong và các chỉ thị được định nghĩa trong preset này.
+                Preset đã được nạp thành công. Bạn có thể bật tắt hoặc chỉnh sửa các khối lệnh bên dưới.
               </span>
             )}
             {!activePreset && (
               <span className="input-hint" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '8px', display: 'block', lineHeight: 1.4 }}>
                 Bạn có thể nạp các file Preset (chứa các system prompt, thẻ meta, macro setvar/getvar) để ghi đè hoặc bổ sung lối văn phong, luật chơi cho AI.
               </span>
+            )}
+
+            {activePreset?.rawPrompts && (
+              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Các khối lệnh (Prompts)</h4>
+                {activePreset.rawPrompts.map(prompt => (
+                  <PresetPromptItem 
+                    key={prompt.identifier} 
+                    prompt={prompt} 
+                    onUpdate={handleUpdatePromptBlock} 
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* PRESET SAMPLING PARAMS */}
+            {activePreset?.originalJson && (
+              <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Tham số AI (Sẽ ghi đè Profile)</h4>
+                {['temperature', 'top_p', 'top_k', 'frequency_penalty', 'presence_penalty', 'max_context_length', 'max_length'].map(key => {
+                  const val = activePreset.originalJson[key];
+                  if (val === undefined) return null;
+                  return (
+                    <div className="param-row" key={key}>
+                      <div className="param-header" style={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+                        <label className="input-label">{key}</label>
+                        <input
+                          className="input param-number"
+                          type="number"
+                          step={['top_k', 'max_length', 'max_context_length'].includes(key) ? 1 : 0.05}
+                          value={val}
+                          onChange={e => updatePresetSettings({ [key]: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* PRESET REGEX SCRIPTS */}
+            {activePreset?.originalJson?.extensions?.regex_scripts && (
+              <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Regex Scripts ({activePreset.originalJson.extensions.regex_scripts.length})
+                </h4>
+                {activePreset.originalJson.extensions.regex_scripts.map((script: any, index: number) => (
+                  <PresetRegexItem 
+                    key={index} 
+                    script={script}
+                    index={index}
+                    onUpdate={handleUpdateRegexScript} 
+                  />
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -593,6 +657,128 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
     </div>
   );
 };
+
+/* ═══════════════════════════════════════════════════════
+   PRESET EDITOR ITEM
+   ═══════════════════════════════════════════════════════ */
+const PresetPromptItem: React.FC<{ prompt: PresetPromptBlock; onUpdate: (id: string, updates: Partial<PresetPromptBlock>) => void }> = ({ prompt, onUpdate }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [content, setContent] = useState(prompt.content || '');
+
+  React.useEffect(() => {
+    setContent(prompt.content || '');
+  }, [prompt.content]);
+
+  const handleSave = () => {
+    onUpdate(prompt.identifier, { content });
+    setIsExpanded(false);
+  };
+
+  return (
+    <div className="profile-card glass-light" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            className={`toggle ${prompt.enabled !== false ? 'toggle--on' : ''}`}
+            onClick={() => onUpdate(prompt.identifier, { enabled: prompt.enabled === false ? true : false })}
+          >
+            <div className="toggle-thumb" />
+          </button>
+          <span className="profile-name" style={{ fontSize: '0.9rem' }}>{prompt.name || prompt.identifier}</span>
+        </div>
+        <button className="btn btn-sm" onClick={() => setIsExpanded(!isExpanded)}>
+          {isExpanded ? 'Đóng' : 'Sửa'}
+        </button>
+      </div>
+      
+      {isExpanded && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px', animation: 'fadeIn 0.2s ease-out' }}>
+          <textarea
+            className="input"
+            rows={8}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            style={{ fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: 1.4 }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <button className="btn btn-sm" onClick={() => { setContent(prompt.content || ''); setIsExpanded(false); }}>
+              Hủy
+            </button>
+            <button className="btn btn-sm btn-primary" onClick={handleSave}>
+              <CheckIcon size={14} /> Lưu thay đổi
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════
+   PRESET REGEX EDITOR ITEM
+   ═══════════════════════════════════════════════════════ */
+const PresetRegexItem = React.memo<{ script: any; index: number; onUpdate: (index: number, updates: any) => void }>(({ script, index, onUpdate }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [findRegex, setFindRegex] = useState(script.findRegex || '');
+  const [replaceString, setReplaceString] = useState(script.replaceString || '');
+
+  React.useEffect(() => {
+    setFindRegex(script.findRegex || '');
+    setReplaceString(script.replaceString || '');
+  }, [script]);
+
+  const handleSave = () => {
+    onUpdate(index, { findRegex, replaceString });
+    setIsExpanded(false);
+  };
+
+  return (
+    <div className="profile-card glass-light" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            className={`toggle ${!script.disabled ? 'toggle--on' : ''}`}
+            onClick={() => onUpdate(index, { disabled: !script.disabled })}
+          >
+            <div className="toggle-thumb" />
+          </button>
+          <span className="profile-name" style={{ fontSize: '0.9rem' }}>{script.scriptName || 'Unnamed Regex'}</span>
+        </div>
+        <button className="btn btn-sm" onClick={() => setIsExpanded(!isExpanded)}>
+          {isExpanded ? 'Đóng' : 'Sửa'}
+        </button>
+      </div>
+      
+      {isExpanded && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px', animation: 'fadeIn 0.2s ease-out' }}>
+          <label className="input-label">Pattern</label>
+          <input
+            className="input"
+            value={findRegex}
+            onChange={(e) => setFindRegex(e.target.value)}
+            style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+          />
+          <label className="input-label" style={{ marginTop: '8px' }}>Replacement</label>
+          <textarea
+            className="input"
+            rows={3}
+            value={replaceString}
+            onChange={(e) => setReplaceString(e.target.value)}
+            style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+            <button className="btn btn-sm" onClick={() => { setFindRegex(script.findRegex || ''); setReplaceString(script.replaceString || ''); setIsExpanded(false); }}>
+              Hủy
+            </button>
+            <button className="btn btn-sm btn-primary" onClick={handleSave}>
+              <CheckIcon size={14} /> Lưu
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
 
 /* ═══════════════════════════════════════════════════════
    ENRICH TABS — AI Kết Nối + AI Tham Số

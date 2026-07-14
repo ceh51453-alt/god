@@ -1,4 +1,5 @@
 import { useConnectionStore, type ConnectionProfile, type ProviderPreset } from '@/stores/connectionStore';
+import { usePresetStore } from '@/stores/presetStore';
 
 /* ═══════════════════════════════════════════════════════
    API CLIENT — Proxy-aware, SSE streaming, auto-retry
@@ -449,13 +450,18 @@ async function parseSSEStream(
             onThinkingChunk?.(thinkingChunk);
           }
           if (chunk) {
-            thinkParser.process(chunk, (text) => {
-              fullText += text;
-              onChunk(text);
-            }, (thinkText) => {
-              thinkingText += thinkText;
-              onThinkingChunk?.(thinkText);
-            });
+            if (usePresetStore.getState().activePreset) {
+              fullText += chunk;
+              onChunk(chunk);
+            } else {
+              thinkParser.process(chunk, (text) => {
+                fullText += text;
+                onChunk(text);
+              }, (thinkText) => {
+                thinkingText += thinkText;
+                onThinkingChunk?.(thinkText);
+              });
+            }
           }
         } catch {
           // Skip malformed JSON chunks
@@ -463,13 +469,17 @@ async function parseSSEStream(
       }
     }
   } finally {
-    thinkParser.flush((text) => {
-      fullText += text;
-      onChunk(text);
-    }, (thinkText) => {
-      thinkingText += thinkText;
-      onThinkingChunk?.(thinkText);
-    });
+    if (usePresetStore.getState().activePreset) {
+      // Do not flush thinkParser if preset is active
+    } else {
+      thinkParser.flush((text) => {
+        fullText += text;
+        onChunk(text);
+      }, (thinkText) => {
+        thinkingText += thinkText;
+        onThinkingChunk?.(thinkText);
+      });
+    }
     reader.releaseLock();
   }
 
@@ -685,14 +695,16 @@ export async function sendChat(
       // ────────────────────────────────────────────────────────
       // Trích xuất thẻ <think> từ nội dung text (do Preset sinh ra)
       // ────────────────────────────────────────────────────────
-      const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/i);
-      if (thinkMatch) {
-        // Nối thêm vào thinkingText nếu đã có sẵn từ native API
-        thinkingText = thinkingText 
-          ? thinkingText + '\n\n' + thinkMatch[1].trim()
-          : thinkMatch[1].trim();
-        // Xóa bỏ thẻ khỏi nội dung chính
-        text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+      if (!usePresetStore.getState().activePreset) {
+        const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/i);
+        if (thinkMatch) {
+          // Nối thêm vào thinkingText nếu đã có sẵn từ native API
+          thinkingText = thinkingText 
+            ? thinkingText + '\n\n' + thinkMatch[1].trim()
+            : thinkMatch[1].trim();
+          // Xóa bỏ thẻ khỏi nội dung chính
+          text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        }
       }
 
       if (options.signal?.aborted) return text;

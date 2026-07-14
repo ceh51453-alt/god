@@ -31,14 +31,19 @@ export interface PresetRegex {
 export interface PresetData {
   id: string;
   name: string;
-  prompts: PresetPromptBlock[];
+  rawPrompts: PresetPromptBlock[]; // Bản gốc để edit UI
+  prompts: PresetPromptBlock[];    // Bản đã compile để gửi AI
   regexes: PresetRegex[];
   promptOrder: string[];  // thứ tự identifier từ prompt_order
+  originalJson?: any;     // Lưu lại JSON gốc để khi biên dịch lại có đủ data
 }
 
 interface PresetStore {
   activePreset: PresetData | null;
   loadPreset: (jsonData: any, filename: string) => void;
+  updatePromptBlock: (identifier: string, updates: Partial<PresetPromptBlock>) => void;
+  updatePresetSettings: (settings: Record<string, any>) => void;
+  updateRegexScript: (index: number, updates: any) => void;
   clearPreset: () => void;
 }
 
@@ -248,9 +253,11 @@ export const usePresetStore = create<PresetStore>()((set) => {
       const preset: PresetData = {
         id: jsonData.id || filename,
         name: filename.replace('.json', ''),
+        rawPrompts: JSON.parse(JSON.stringify(jsonData.prompts)), // Deep copy bản gốc
         prompts,
         regexes: allRegexes,
         promptOrder,
+        originalJson: jsonData,
       };
       
       // Chỉ lưu compiled data vào localStorage (không lưu originalJson ~1MB)
@@ -291,6 +298,118 @@ export const usePresetStore = create<PresetStore>()((set) => {
       } catch (err) {
         console.error('Failed to sync sampling params:', err);
       }
+    },
+    
+    updatePromptBlock: (identifier: string, updates: Partial<PresetPromptBlock>) => {
+      set((state) => {
+        if (!state.activePreset) return state;
+
+        const { activePreset } = state;
+        const newRawPrompts = activePreset.rawPrompts.map((p) =>
+          p.identifier === identifier ? { ...p, ...updates } : p
+        );
+
+        const { prompts, regexes } = compilePreset(newRawPrompts);
+
+        const scriptRegexes = Array.isArray(activePreset.originalJson?.extensions?.regex_scripts)
+          ? parseRegexScripts(activePreset.originalJson.extensions.regex_scripts)
+          : [];
+        const allRegexes: PresetRegex[] = [...regexes, ...scriptRegexes];
+
+        const updatedPreset: PresetData = {
+          ...activePreset,
+          rawPrompts: newRawPrompts,
+          prompts,
+          regexes: allRegexes,
+        };
+
+        localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(updatedPreset));
+        return { activePreset: updatedPreset };
+      });
+    },
+
+    updatePresetSettings: (settings: Record<string, any>) => {
+      set((state) => {
+        if (!state.activePreset || !state.activePreset.originalJson) return state;
+        
+        const { activePreset } = state;
+        const newJson = { ...activePreset.originalJson, ...settings };
+        
+        const updatedPreset: PresetData = {
+          ...activePreset,
+          originalJson: newJson,
+        };
+        
+        localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(updatedPreset));
+        
+        // Sync to connection store immediately
+        try {
+          const activeProfile = useConnectionStore.getState().getActiveProfile();
+          if (activeProfile) {
+            const sampling = { ...activeProfile.sampling };
+            let hasChanges = false;
+            
+            const mapParam = (presetKey: string, profileKey: keyof typeof sampling) => {
+              if (settings[presetKey] !== undefined && typeof settings[presetKey] === 'number') {
+                // @ts-ignore
+                sampling[profileKey] = settings[presetKey];
+                hasChanges = true;
+              }
+            };
+
+            mapParam('temperature', 'temperature');
+            mapParam('top_p', 'top_p');
+            mapParam('top_k', 'top_k');
+            mapParam('min_p', 'min_p');
+            mapParam('frequency_penalty', 'frequency_penalty');
+            mapParam('presence_penalty', 'presence_penalty');
+            mapParam('max_length', 'max_tokens');
+            mapParam('openai_max_tokens', 'max_tokens');
+            mapParam('max_context_length', 'max_context_tokens');
+            mapParam('openai_max_context', 'max_context_tokens');
+
+            if (hasChanges) {
+              useConnectionStore.getState().updateProfile(activeProfile.id, { sampling });
+            }
+          }
+        } catch (err) {
+          console.error('Failed to sync sampling params:', err);
+        }
+
+        return { activePreset: updatedPreset };
+      });
+    },
+
+    updateRegexScript: (index: number, updates: any) => {
+      set((state) => {
+        if (!state.activePreset || !state.activePreset.originalJson) return state;
+
+        const { activePreset } = state;
+        const extensions = activePreset.originalJson.extensions || {};
+        const scripts = Array.isArray(extensions.regex_scripts) ? [...extensions.regex_scripts] : [];
+        
+        if (scripts[index]) {
+          scripts[index] = { ...scripts[index], ...updates };
+        }
+
+        const newJson = {
+          ...activePreset.originalJson,
+          extensions: { ...extensions, regex_scripts: scripts },
+        };
+
+        const { regexes } = compilePreset(activePreset.rawPrompts);
+        const scriptRegexes = parseRegexScripts(scripts);
+        const allRegexes: PresetRegex[] = [...regexes, ...scriptRegexes];
+
+        const updatedPreset: PresetData = {
+          ...activePreset,
+          originalJson: newJson,
+          regexes: allRegexes,
+        };
+
+        localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(updatedPreset));
+        return { activePreset: updatedPreset };
+      });
     },
     
     clearPreset: () => {

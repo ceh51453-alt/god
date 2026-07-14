@@ -8,6 +8,7 @@ import { getOpeningPrompt } from '@/engine/rag/ragEngine';
 import { buildPrompt, estimatePromptTokens } from '@/engine/prompt/promptBuilder';
 import { parseNarrativeTags } from '@/engine/narrative/tagParser';
 import { extractStudioCreations } from '@/engine/studio/studioSync';
+import { sameName } from '@/engine/canon/entityRegistry';
 import { useStudioStore } from '@/components/studio/studioStore';
 import { runEnrich } from '@/engine/studio/enrichEngine';
 import { useEnrichStore } from '@/stores/enrichStore';
@@ -36,32 +37,22 @@ const REGEX_PURIFY_CONFIG = {
   ALLOW_DATA_ATTR: true,
 };
 
-/**
- * Kiểm tra text có chứa HTML block-level tags không (sản phẩm của regex).
- * SillyTavern regex scripts thường tạo ra div, style, class-based HTML.
- */
-function hasHtmlBlocks(text: string): boolean {
-  return /<(?:div|style|section|article|header|footer|main|table|html)\b/i.test(text);
-}
-
 function renderMarkdown(text: string): string {
   const raw = marked.parse(text) as string;
   return DOMPurify.sanitize(raw);
 }
 
 /**
- * Render nội dung AI đã qua regex. Nếu regex đã tạo HTML → sanitize trực tiếp.
- * Nếu không → dùng markdown bình thường.
+ * Render nội dung AI (có thể lẫn HTML do regex preset tạo).
+ * LUÔN qua marked: văn xuôi giữ ngắt đoạn (\n\n → <p>, \n → <br>), trong khi
+ * marked GIỮ NGUYÊN các khối HTML block (card/style). Trước đây khi có HTML,
+ * code bỏ qua marked và sanitize thẳng → HTML nuốt mất \n của văn xuôi nên
+ * cả đoạn dồn thành một cục sau khi stream xong. Sanitize bằng config nới lỏng
+ * để card vẫn giữ class/style.
  */
 function renderRegexedContent(text: string): string {
-  if (hasHtmlBlocks(text)) {
-    // Regex đã tạo HTML structure → sanitize trực tiếp, KHÔNG qua marked.parse()
-    // vì marked sẽ escape các thẻ HTML thành &lt;&gt;
-    return DOMPurify.sanitize(text, REGEX_PURIFY_CONFIG);
-  }
-  // Text bình thường (regex chỉ đổi text, không tạo HTML) → render markdown
   const raw = marked.parse(text) as string;
-  return DOMPurify.sanitize(raw);
+  return DOMPurify.sanitize(raw, REGEX_PURIFY_CONFIG);
 }
 
 export const ChatPanel: React.FC = () => {
@@ -189,8 +180,7 @@ export const ChatPanel: React.FC = () => {
             for (const c of creations) {
               const studio = useStudioStore.getState();
               const existing = studio.entities.find(
-                e => e.category === c.category &&
-                  e.name.trim().toLowerCase() === c.name.trim().toLowerCase()
+                e => e.category === c.category && sameName(e.name, c.name)
               );
               if (existing) {
                 // Cập nhật: chỉ ghi đè trường AI cung cấp không rỗng

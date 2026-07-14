@@ -26,11 +26,9 @@ const REGEX_PURIFY_CONFIG = {
 };
 
 function renderMd(text: string): string {
-  // Nếu text chứa HTML block (sản phẩm của regex) → sanitize trực tiếp
-  if (/<(?:div|style|section|article|header|footer|main|table|html)\b/i.test(text)) {
-    return DOMPurify.sanitize(text, REGEX_PURIFY_CONFIG);
-  }
-  return DOMPurify.sanitize(marked.parse(text) as string);
+  // LUÔN qua marked để văn xuôi giữ ngắt đoạn; marked giữ nguyên HTML block
+  // (card/style) do regex preset tạo. Sanitize bằng config nới lỏng cho card.
+  return DOMPurify.sanitize(marked.parse(text) as string, REGEX_PURIFY_CONFIG);
 }
 
 // ── Individual tag renderers ──

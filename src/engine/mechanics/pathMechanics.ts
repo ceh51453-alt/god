@@ -47,14 +47,15 @@ export const PATH_TIERS: Record<GamePath, Tier[]> = {
   ],
 };
 
-export function progressionLabel(path: GamePath): string {
+export function progressionLabel(path: GamePath, overrideLabel?: string): string {
+  if (overrideLabel && overrideLabel.trim()) return overrideLabel;
   return path === 'creator' ? 'Kỷ Nguyên Sáng Thế'
     : path === 'god' ? 'Thần Cấp'
     : 'Cảnh Giới Tu Luyện';
 }
 
-export function deriveTier(path: GamePath, progress: number): TierState {
-  const tiers = PATH_TIERS[path];
+export function deriveTier(path: GamePath, progress: number, override?: Tier[]): TierState {
+  const tiers = override && override.length >= 2 ? override : PATH_TIERS[path];
   let index = 0;
   for (let i = 0; i < tiers.length; i++) if (progress >= tiers[i].at) index = i;
   const cur = tiers[index];

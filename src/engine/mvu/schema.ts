@@ -48,6 +48,28 @@ export function deriveAffinityStage(value: number): z.infer<typeof AffinityStage
   return 'Thân Mật';
 }
 
+// ── World Time (đồng hồ in-world do Engine sở hữu) ──
+
+export const defaultTime = () => ({
+  calendarName: '', cycleRule: '', epochLabel: '', seasonNames: [] as string[],
+  daysPerSeason: 30, seasonsPerYear: 4, day: 0, season: 0, year: 0, epoch: 0,
+});
+
+export const TimeSchema = z.object({
+  calendarName: safeStr(120),
+  cycleRule: safeStr(300),
+  epochLabel: safeStr(120),
+  seasonNames: z.array(safeStr(60)).default([]),
+  daysPerSeason: cInt(1, 100000000, 30),
+  seasonsPerYear: cInt(1, 100000000, 4),
+  day: cInt(0, 1000000000, 0),
+  season: cInt(0, 1000000000, 0),
+  year: cInt(0, 1000000000, 0),
+  epoch: cInt(0, 1000000000, 0),
+}).default(defaultTime);
+
+export type WorldTimeData = z.infer<typeof TimeSchema>;
+
 // ── NPC Schema ──
 
 export const NpcSchema = z.object({
@@ -61,6 +83,11 @@ export const NpcSchema = z.object({
   personality: safeStr(300),
   memories: z.array(safeStr(300)).default([]),
   promises: z.array(safeStr(300)).default([]),
+  aliases: z.array(safeStr(120)).default([]),
+  /** Điều NPC này THỰC SỰ biết (chống toàn tri). Chỉ những gì đã chứng kiến/được kể. */
+  knows: z.array(safeStr(300)).default([]),
+  /** Mưu cầu/mục tiêu riêng — để NPC tự vận động dù người chơi vắng mặt. */
+  agenda: safeStr(300),
 });
 
 // ── Entity Schema ──
@@ -73,6 +100,7 @@ export const EntitySchema = z.object({
   status: z.enum(['active', 'dormant', 'destroyed', 'unknown']).default('active'),
   description: safeStr(500),
   properties: z.record(z.string(), safeStr(300)).default({}),
+  aliases: z.array(safeStr(120)).default([]),
 });
 
 // ── Quest Schema ──
@@ -136,10 +164,12 @@ export const StatDataSchema = z.object({
     cosmicRules: safeStr(500),
     pantheonName: safeStr(200),
     appearance: safeStr(300),
+    time: TimeSchema,
   }).default(() => ({
     era: '', eraDescription: '', region: '', faction: '',
     cosmicDomain: '', divineRealm: '', mortalOrigin: '', mortalClass: '',
     reputation: '', crisis: '', cosmicRules: '', pantheonName: '', appearance: '',
+    time: defaultTime(),
   })),
 
   // NPCs
@@ -163,6 +193,10 @@ export const StatDataSchema = z.object({
     turn: z.number().int().default(0),
     event: safeStr(500),
     category: z.enum(['creation', 'combat', 'diplomacy', 'divine', 'personal', 'world']).default('world'),
+    /** Mức lộ của sự kiện — quyết định ai được phép biết. */
+    visibility: z.enum(['public', 'private', 'secret']).default('public'),
+    /** id các NPC đã chứng kiến sự kiện (được phép biết dù không công khai). */
+    witnesses: z.array(safeStr(120)).default([]),
   })).default([]),
 
   // Settings
@@ -194,6 +228,7 @@ export const StatDataSchema = z.object({
     era: '', eraDescription: '', region: '', faction: '',
     cosmicDomain: '', divineRealm: '', mortalOrigin: '', mortalClass: '',
     reputation: '', crisis: '', cosmicRules: '', pantheonName: '', appearance: '',
+    time: defaultTime(),
   },
   npcs: {}, entities: {}, quests: {},
   companion: { name: '', description: '', attributes: {} },

@@ -111,7 +111,37 @@ const KEY_FIELDS: Record<CategoryId, string[]> = {
   divine_hierarchy: ['roles'],
 };
 
-export function summarizeStudioForAI(entities: StudioEntity[], maxChars = 2400): string {
+/** Field graph (cây/chuỗi) cốt lõi cần đưa cho AI — đây là "luật" người chơi tự dựng. */
+const GRAPH_FIELDS: Partial<Record<CategoryId, { field: string; label: string }>> = {
+  power: { field: 'tiers', label: 'Thang cảnh giới (BẮT BUỘC theo đúng thứ tự & tên này)' },
+  law: { field: 'clauses', label: 'Điều khoản' },
+  world: { field: 'planes', label: 'Tầng/cõi' },
+  material: { field: 'refine', label: 'Chuỗi tinh luyện' },
+  species: { field: 'evolution', label: 'Hướng tiến hóa' },
+  artifact: { field: 'awaken', label: 'Chuỗi thăng cấp' },
+};
+
+/** Render các node của một field graph thành các dòng thụt lề cho prompt. */
+function renderGraphNodes(raw: unknown, label: string, max = 10): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  const out: string[] = [`  ${label}:`];
+  raw.slice(0, max).forEach((n, i) => {
+    if (!n || typeof n !== 'object') return;
+    const o = n as Record<string, unknown>;
+    const title = typeof o.title === 'string' ? o.title.trim() : '';
+    if (!title) return;
+    const meta = typeof o.meta === 'string' ? o.meta.trim() : '';
+    const detail = typeof o.detail === 'string' ? o.detail.trim() : '';
+    let line = `    ${i + 1}. ${title}`;
+    if (typeof o.num === 'number') line += ` ·${o.num}`;
+    if (meta) line += ` [${meta}]`;
+    if (detail) line += ` — ${detail}`;
+    out.push(line);
+  });
+  return out.length > 1 ? out : [];
+}
+
+export function summarizeStudioForAI(entities: StudioEntity[], maxChars = 3800): string {
   if (!entities.length) return '';
 
   const byCat = new Map<CategoryId, StudioEntity[]>();
@@ -121,8 +151,9 @@ export function summarizeStudioForAI(entities: StudioEntity[], maxChars = 2400):
   }
 
   const lines: string[] = [
-    '=== XƯỞNG SÁNG THẾ — THẾ GIỚI NGƯƠI ĐÃ DỰNG ===',
-    '(Đây là SỰ THẬT về vũ trụ. Hãy dùng đúng tên & thuộc tính này khi kể; có thể mở rộng nhưng KHÔNG mâu thuẫn.)',
+    '=== XƯỞNG SÁNG THẾ — LUẬT & THẾ GIỚI NGƯƠI ĐÃ DỰNG (CHÍNH SỬ) ===',
+    '(Đây là SỰ THẬT BẮT BUỘC về vũ trụ. Dùng ĐÚNG tên, thang cảnh giới, điều khoản luật dưới đây khi kể.',
+    'Ngươi được mở rộng chi tiết nhưng TUYỆT ĐỐI KHÔNG bịa cảnh giới/quy luật khác hay mâu thuẫn với chúng.)',
   ];
 
   for (const cat of CATEGORIES) {
@@ -139,6 +170,12 @@ export function summarizeStudioForAI(entities: StudioEntity[], maxChars = 2400):
       if (meta) bits.push(`[${meta}]`);
       if (tag) bits.push(`— ${tag}`);
       lines.push(bits.join(' '));
+
+      // Đưa "luật" người chơi tự dựng (thang cảnh giới, điều khoản, cây tiến hóa...) vào prompt.
+      const g = GRAPH_FIELDS[cat.id];
+      if (g) {
+        for (const l of renderGraphNodes(e.values[g.field], g.label)) lines.push(l);
+      }
     }
   }
 

@@ -2,10 +2,13 @@ import { create } from 'zustand';
 import type { GamePath, CharacterData } from '@/components/creation/creationData';
 import { defaultCharacter } from '@/components/creation/creationData';
 import type { StatData } from '@/engine/mvu/schema';
-import { StatDataSchema } from '@/engine/mvu/schema';
+import { StatDataSchema, defaultTime } from '@/engine/mvu/schema';
 import type { MvuPatchOp } from '@/engine/mvu/patchEngine';
-import { applyPatches } from '@/engine/mvu/patchEngine';
+import { applyPatches, filterAIPatches } from '@/engine/mvu/patchEngine';
 import { deriveAffinityStage } from '@/engine/mvu/schema';
+import { normalizeTime } from '@/engine/mvu/timeEngine';
+import { resolveEntityPatches } from '@/engine/canon/entityRegistry';
+import { guardPatches } from '@/engine/canon/canonGuard';
 import { saveSnapshot, clearSnapshots, rollbackTo, exportSnapshots, importSnapshots } from '@/engine/mvu/snapshot';
 import { extractPatches } from '@/engine/mvu/extractor';
 import { saveSlot, loadSlot, deleteSlot, getActiveSlotId, setActiveSlotId, clearActiveSlotId, createSlot } from './saveManager';
@@ -81,6 +84,8 @@ interface ChatState {
   // MVU Actions
   initStatData: (character: CharacterData, path: GamePath) => void;
   applyMvuPatches: (patches: MvuPatchOp[]) => void;
+  /** Áp patch từ pass nền (world-sim / canon-fix) qua đúng pipeline an toàn, KHÔNG tăng lượt. */
+  applyBackgroundPatches: (rawPatches: MvuPatchOp[]) => { applied: number; dropped: number };
   processAIResponse: (rawContent: string) => { cleanText: string; patches: MvuPatchOp[] };
   rollbackToTurn: (turn: number) => boolean;
   /** Xóa lượt gần nhất (user + assistant) và khôi phục state 1 snapshot. */
@@ -146,6 +151,7 @@ function buildInitialStatData(character: CharacterData, path: GamePath): StatDat
       cosmicRules: character.cosmicRules,
       pantheonName: character.pantheonName,
       appearance: character.appearance,
+      time: { ...defaultTime(), epochLabel: character.era || '' },
     },
     companion: {
       name: character.followerName,
@@ -161,7 +167,7 @@ function buildInitialStatData(character: CharacterData, path: GamePath): StatDat
 
 /** Run derived effects after patch application */
 function runDerivedEffects(state: StatData): StatData {
-  const result = { ...state };
+  let result = { ...state };
 
   // Derive affinity stages for all NPCs
   if (result.npcs) {
@@ -174,6 +180,9 @@ function runDerivedEffects(state: StatData): StatData {
     }
     result.npcs = npcs;
   }
+
+  // Chuẩn hóa đồng hồ in-world (dồn tràn Ngày→Mùa→Năm, chặn lùi)
+  result = normalizeTime(result);
 
   return result;
 }
@@ -303,11 +312,34 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     });
   },
 
+  applyBackgroundPatches: (rawPatches) => {
+    const s = get();
+    // Cùng lớp an toàn như lượt chính: chặn field readonly → gộp trùng → canon guard.
+    const safe = filterAIPatches(rawPatches);
+    const resolved = resolveEntityPatches(s.statData, safe);
+    const { patches, dropped } = guardPatches(s.statData, resolved);
+    if (patches.length === 0) return { applied: 0, dropped: dropped.length };
+    let ns = applyPatches(s.statData, patches);
+    ns = runDerivedEffects(ns);       // KHÔNG tăng _turnCount (đây là diễn biến nền)
+    set({ statData: ns });
+    const f = get();
+    if (f.game.gameStarted) saveToActiveSlot(f.game, f.messages, f.statData);
+    return { applied: patches.length, dropped: dropped.length };
+  },
+
   processAIResponse: (rawContent) => {
-    const { cleanText, patches, errors } = extractPatches(rawContent);
+    const { cleanText, patches: rawPatches, errors } = extractPatches(rawContent);
 
     if (errors.length > 0) {
       console.warn('[MVU] Patch parse errors:', errors);
+    }
+
+    // Chống trùng: gộp "insert" thực thể đã tồn tại vào id cũ thay vì tạo mới.
+    const resolved = resolveEntityPatches(get().statData, rawPatches);
+    // Canon Guard: chặn thực thể ma & thời gian chạy lùi.
+    const { patches, dropped } = guardPatches(get().statData, resolved);
+    if (dropped.length > 0) {
+      console.warn('[Canon Guard] bỏ', dropped.length, 'patch mâu thuẫn:', dropped.map(d => d.reason));
     }
 
     if (patches.length > 0) {

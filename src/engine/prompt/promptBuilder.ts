@@ -11,6 +11,7 @@ import type { GamePath, CharacterData } from '@/components/creation/creationData
 import { renderStateForAI, buildMvuInstructionPrompt } from '../mvu/stateRenderer';
 import { buildRAGContext } from '../rag/ragEngine';
 import { staticRules } from '../mechanics/pathMechanics';
+import { getProgressionOverride } from '../canon/progression';
 import { summarizeStudioForAI } from '../studio/studioSync';
 import type { StudioEntity } from '@/components/studio/studioTypes';
 import { usePresetStore, applyPresetRegexes } from '@/stores/presetStore';
@@ -100,7 +101,9 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
   charBudget -= systemContent.length;
 
   // ── 2. State block (mandatory) ──
-  const stateBlock = renderStateForAI(statData);
+  // Thang cảnh giới do creator thiết kế (nếu có) ghi đè bậc mặc định.
+  const ladder = getProgressionOverride(path, studioEntities);
+  const stateBlock = renderStateForAI(statData, ladder);
   charBudget -= stateBlock.length;
 
   // Combine system + state
@@ -152,14 +155,19 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
     .filter(m => m.role !== 'system' && !m.streaming)
     .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-  // Add messages from most recent, trimming oldest if over budget
+  // Add messages from most recent, trimming oldest if over budget.
+  // Canon (system + state + studio + settings) là bắt buộc; lịch sử bị cắt trước.
+  // Nhưng LUÔN giữ tối thiểu vài lượt gần nhất kẻo mất ngữ cảnh tức thời.
+  const MIN_KEEP = 4;
   const historyToAdd: PromptMessage[] = [];
   let historyChars = 0;
 
   for (let i = chatMessages.length - 1; i >= 0; i--) {
     const msg = chatMessages[i];
     const msgLen = msg.content.length;
-    if (historyChars + msgLen > charBudget) break;
+    const withinBudget = historyChars + msgLen <= charBudget;
+    const mustKeep = (chatMessages.length - i) <= MIN_KEEP;
+    if (!withinBudget && !mustKeep) break;
     historyToAdd.unshift(msg);
     historyChars += msgLen;
   }
@@ -278,6 +286,9 @@ function renderSettingsForAI(s: StatData['settings']): string {
     s.maturity === 'mature'
       ? 'Nội dung NGƯỜI LỚN: cho phép chủ đề nặng, bạo lực, đen tối khi hợp cảnh (vẫn bám hướng người chơi).'
       : 'Nội dung AN TOÀN: tránh mô tả quá bạo lực hay nhạy cảm.',
+    s.playerCentric
+      ? 'Trọng tâm NGƯỜI CHƠI: câu chuyện chủ yếu xoay quanh hành động & quyết định của người chơi.'
+      : 'THẾ GIỚI SỐNG (không xoay quanh người chơi): Mỗi lượt, để các NPC/thế lực theo đuổi "mưu cầu" RIÊNG của họ một cách độc lập — kể cả khi người chơi không có mặt. Nhân vật tự phát triển, phe phái tranh đoạt/liên minh, sự kiện xảy ra song song; hé lộ qua tin đồn, hệ quả, diễn biến nền. Cập nhật npcs.<id>.agenda và trạng thái tương ứng để phản ánh sự vận động đó.',
   ];
   return lines.join('\n');
 }

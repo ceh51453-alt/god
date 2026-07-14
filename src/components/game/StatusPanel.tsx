@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useChatStore } from '@/stores/chatStore';
+import { useStudioStore } from '@/components/studio/studioStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
   CREATOR_ATTRIBUTES, GOD_ATTRIBUTES, MORTAL_ATTRIBUTES,
@@ -7,6 +8,7 @@ import {
   type AttributeDef, type TraitDef,
 } from '@/components/creation/creationData';
 import { deriveTier, deriveMeters, progressionLabel } from '@/engine/mechanics/pathMechanics';
+import { getProgressionOverride } from '@/engine/canon/progression';
 import type { GamePath } from '@/components/creation/creationData';
 import './GameViews.css';
 
@@ -33,7 +35,9 @@ export const StatusPanel: React.FC<Props> = ({ fullPage }) => {
   const attrName = (k: string) => attrDefs.find(a => a.key === k)?.name ?? k;
 
   const res = statData.resources;
-  const tier = deriveTier(path, res.progress);
+  const studioEntities = useStudioStore(s => s.entities);
+  const ladder = useMemo(() => getProgressionOverride(path, studioEntities), [path, studioEntities]);
+  const tier = deriveTier(path, res.progress, ladder?.tiers);
   const meters = deriveMeters(statData);
   const w = statData.world;
 
@@ -61,7 +65,7 @@ export const StatusPanel: React.FC<Props> = ({ fullPage }) => {
 
       {/* Progression */}
       <div className="sp-section">
-        <h5 className="sp-section-title">{progressionLabel(path)}</h5>
+        <h5 className="sp-section-title">{progressionLabel(path, ladder?.label)}</h5>
         <div className="sp-prog">
           <div className="sp-prog-top">
             <span className="sp-prog-tier" style={{ color: pathAccent }}>{tier.name}</span>

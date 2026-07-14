@@ -7,12 +7,14 @@
 import type { StatData, NpcData, EntityData } from './schema';
 import { deriveAffinityStage } from './schema';
 import { deriveTier, deriveMeters, progressionLabel } from '../mechanics/pathMechanics';
+import type { LadderOverride } from '../canon/progression';
+import { formatWorldTime } from './timeEngine';
 
 /**
  * Render the full state into a text block for injection into AI prompt.
  * Uses Vietnamese labels and natural language, not raw JSON.
  */
-export function renderStateForAI(state: StatData): string {
+export function renderStateForAI(state: StatData, ladder?: LadderOverride | null): string {
   const sections: string[] = [];
 
   // ── Identity ──
@@ -44,10 +46,10 @@ export function renderStateForAI(state: StatData): string {
   }
 
   // ── Mechanics & Tier (LIVE) ──
-  const tier = deriveTier(state.path, res.progress);
+  const tier = deriveTier(state.path, res.progress, ladder?.tiers);
   const mechLines: string[] = [];
   mechLines.push(
-    `${progressionLabel(state.path)}: ${tier.name} — ${tier.desc}`,
+    `${progressionLabel(state.path, ladder?.label)}: ${tier.name} — ${tier.desc}`,
     tier.next != null
       ? `Tiến Trình: ${res.progress}/${tier.next} (${tier.pct}% tới "${tier.nextName}")`
       : `Tiến Trình: ${res.progress} (đã đạt đỉnh cao nhất)`,
@@ -56,6 +58,14 @@ export function renderStateForAI(state: StatData): string {
     mechLines.push(`${m.label}: ${m.value}${m.hint ? ` (${m.hint})` : ''}`);
   }
   sections.push(`\nCơ chế & Cấp bậc:\n  ${mechLines.join('\n  ')}`);
+
+  // ── Thời gian in-world (LIVE) ──
+  const timeStr = formatWorldTime(state.world.time);
+  if (timeStr) {
+    const tLines = [timeStr];
+    if (state.world.time.cycleRule) tLines.push(`Chu kỳ: ${state.world.time.cycleRule}`);
+    sections.push(`\nThời gian:\n  ${tLines.join('\n  ')}`);
+  }
 
   // ── World ──
   const w = state.world;
@@ -89,19 +99,19 @@ export function renderStateForAI(state: StatData): string {
   const npcEntries = Object.entries(state.npcs);
   if (npcEntries.length > 0) {
     const npcLines = npcEntries.map(([id, npc]) => renderNpcCompact(id, npc)).join('\n');
-    sections.push(`\nMối quan hệ:\n${npcLines}`);
+    sections.push(`\nMối quan hệ (dùng đúng [id] khi cập nhật):\n${npcLines}`);
   }
 
   // ── Entities ──
   const entityEntries = Object.entries(state.entities);
   if (entityEntries.length > 0) {
     const entLines = entityEntries
-      .slice(0, 10)
+      .slice(0, 12)
       .map(([id, ent]) => renderEntityCompact(id, ent))
       .join('\n');
-    sections.push(`\nThực thể:\n${entLines}`);
-    if (entityEntries.length > 10) {
-      sections.push(`  ... và ${entityEntries.length - 10} thực thể khác`);
+    sections.push(`\nThực thể (dùng đúng [id] khi cập nhật):\n${entLines}`);
+    if (entityEntries.length > 12) {
+      sections.push(`  ... và ${entityEntries.length - 12} thực thể khác`);
     }
   }
 
@@ -131,16 +141,24 @@ export function renderStateForAI(state: StatData): string {
   return sections.join('\n');
 }
 
-function renderNpcCompact(_id: string, npc: NpcData): string {
+function renderNpcCompact(id: string, npc: NpcData): string {
   const stage = deriveAffinityStage(npc.affinity);
   const status = npc.alive ? '' : ' [Đã Chết]';
   const role = npc.role ? ` — ${npc.role}` : '';
-  return `  ${npc.name}${role}: ${stage} (${npc.affinity})${status}`;
+  const aka = npc.aliases && npc.aliases.length ? ` (aka: ${npc.aliases.join(', ')})` : '';
+  const lines = [`  [${id}] ${npc.name}${role}: ${stage} (${npc.affinity})${status}${aka}`];
+  if (npc.agenda) lines.push(`      mưu cầu: ${npc.agenda}`);
+  // Ranh giới tri thức: NPC chỉ được hành xử theo những gì liệt kê ở đây.
+  if (npc.knows && npc.knows.length) lines.push(`      biết: ${npc.knows.slice(0, 4).join('; ')}`);
+  if (npc.memories && npc.memories.length) lines.push(`      nhớ: ${npc.memories.slice(0, 3).join('; ')}`);
+  if (npc.promises && npc.promises.length) lines.push(`      hứa: ${npc.promises.slice(0, 3).join('; ')}`);
+  return lines.join('\n');
 }
 
-function renderEntityCompact(_id: string, ent: EntityData): string {
+function renderEntityCompact(id: string, ent: EntityData): string {
   const status = ent.status !== 'active' ? ` [${ent.status}]` : '';
-  return `  ${ent.name} (${ent.type}, Sức mạnh: ${ent.power})${status}`;
+  const aka = ent.aliases && ent.aliases.length ? ` (aka: ${ent.aliases.join(', ')})` : '';
+  return `  [${id}] ${ent.name} (${ent.type}, Sức mạnh: ${ent.power})${status}${aka}`;
 }
 
 /**
@@ -178,5 +196,10 @@ QUY TẮC BẮT BUỘC:
 3. Nếu KHÔNG có thay đổi trạng thái → KHÔNG thêm khối <UpdateVariable>.
 4. Lời kể ĐẶT TRƯỚC khối, khối đặt cuối cùng.
 5. TRẠNG THÁI HIỆN TẠI (ở trên) là SỰ THẬT. Nếu mâu thuẫn với trí nhớ, LẤY TRẠNG THÁI LÀM CHUẨN.
+6. DÙNG LẠI ID CÓ SẴN: Khi cập nhật một nhân vật/thực thể ĐÃ xuất hiện, dùng ĐÚNG [id] ghi trong phần "Mối quan hệ"/"Thực thể" (vd {"op":"replace","path":"npcs.<id>.role","value":"..."} hoặc {"op":"delta","path":"npcs.<id>.affinity","value":+5}). TUYỆT ĐỐI KHÔNG tạo id/key mới cho ai đã tồn tại — dù ngươi gọi họ bằng tên khác. Chỉ "insert" khi thực thể LẦN ĐẦU xuất hiện.
+7. THỜI GIAN TRÔI: Mỗi lượt có thời gian trôi trong truyện, đẩy đồng hồ bằng {"op":"delta","path":"world.time.day","value":+N} (dùng .season/.year cho bước nhảy lớn). Engine tự dồn tràn Ngày→Mùa→Năm theo "Chu kỳ" đã định; KHÔNG cho thời gian chạy lùi. Nhân vật, sự kiện, mùa màng phải tôn trọng lịch này thay vì bịa mốc thời gian.
+   · Nếu truyện định ra một lịch/chu kỳ mới (vd "1 năm có 4 mùa, mỗi mùa 90 ngày, tên mùa Xuân-Hạ-Thu-Đông"), ghi MỘT LẦN bằng replace: world.time.calendarName / world.time.cycleRule / world.time.daysPerSeason / world.time.seasonsPerYear / world.time.seasonNames.
+8. NPC KHÔNG TOÀN TRI: Mỗi NPC chỉ được biết & hành xử dựa trên (a) việc CÔNG KHAI, (b) việc họ trực tiếp CHỨNG KIẾN hoặc được kể lại, (c) danh sách "biết/nhớ/hứa" của CHÍNH họ ở phần Mối quan hệ. TUYỆT ĐỐI không để một NPC nhắc tới bí mật, hành động lén lút, hay việc xảy ra lúc họ vắng mặt như thể đương nhiên biết. Khi một NPC vừa HỌC được điều gì (được thấy/nghe kể), ghi lại: {"op":"insert","path":"npcs.<id>.knows","value":"điều vừa biết"}.
+9. BÍ MẬT & NHÂN CHỨNG: Ghi sự kiện đáng nhớ vào timeline kèm mức lộ & nhân chứng: {"op":"insert","path":"timeline","value":{"turn":N,"event":"...","category":"...","visibility":"public|private|secret","witnesses":["<id nhân chứng>"]}}. Việc người chơi làm kín để visibility "secret", witnesses [] → KHÔNG NPC nào được tự biết cho tới khi thực sự bị phát hiện.
 `.trim();
 }

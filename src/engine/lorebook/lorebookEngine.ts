@@ -11,6 +11,9 @@ import {
   type LoreEntry,
 } from '@/stores/lorebookStore';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { useChatStore } from '@/stores/chatStore';
+import { renderStateForAI } from '@/engine/mvu/stateRenderer';
+import type { MvuPatchOp } from '@/engine/mvu/patchEngine';
 
 export interface LoreInjection {
   before: string;   // position 0 — trước "char defs" (đầu system)
@@ -243,27 +246,49 @@ function getMaintConn(): { url: string; headers: Record<string, string>; model: 
   return { url, headers, model: p.selectedModel, provider: p.provider };
 }
 
-function buildMaintenancePrompt(recentText: string, entries: LoreEntry[]): string {
+function buildMaintenancePrompt(
+  recentText: string,
+  entries: LoreEntry[],
+  stateBlock: string,
+  livingWorld: boolean,
+): string {
   const lines: string[] = [];
-  lines.push('Bạn là "Người Giữ Sổ Tri Thức" (Lorebook Keeper) cho một game nhập vai AI.');
-  lines.push('Dựa trên DIỄN BIẾN GẦN NHẤT, hãy cập nhật Sổ Tri Thức (World Info): tạo entry MỚI cho nhân vật/địa điểm/thế lực/khái niệm/vật phẩm quan trọng vừa xuất hiện, BỔ SUNG cho entry đã có nếu có thông tin mới, hoặc XÓA entry đã lỗi thời/không còn đúng.');
+  lines.push('Bạn là "Người Giữ Chính Sử" cho một game nhập vai AI. Cuối lượt này, làm 2 việc trong MỘT phản hồi JSON:');
+  lines.push('A) LORE — bảo trì Sổ Tri Thức: tạo entry MỚI cho nhân vật/địa điểm/thế lực/khái niệm/vật phẩm quan trọng vừa xuất hiện, BỔ SUNG entry đã có, hoặc XÓA entry lỗi thời.');
+  lines.push('B) WORLD — phát patch trạng thái để:');
+  lines.push('   · SỬA mâu thuẫn rõ ràng với CHÍNH SỬ (người đã chết bị coi còn sống, id/tên sai, số liệu lệch lời kể...).');
+  if (livingWorld) {
+    lines.push('   · ĐẨY 1–2 diễn biến OFF-SCREEN (chế độ THẾ GIỚI SỐNG đang bật): để NPC/thế lực theo đuổi "mưu cầu" riêng, sự kiện nền xảy ra song song dù người chơi vắng mặt. Cập nhật npcs.<id>.agenda/affinity, thêm mốc timeline, v.v.');
+  } else {
+    lines.push('   · (Chế độ trọng tâm người chơi: KHÔNG tự bịa diễn biến lớn — chỉ sửa mâu thuẫn.)');
+  }
   lines.push('');
-  lines.push('=== ENTRY HIỆN CÓ ===');
+  lines.push('=== CHÍNH SỬ HIỆN TẠI (nguồn sự thật — dùng đúng [id]) ===');
+  lines.push(stateBlock.slice(0, 3500));
+  lines.push('');
+  lines.push('=== ENTRY LORE HIỆN CÓ ===');
   if (entries.length === 0) lines.push('(chưa có)');
   for (const e of entries.slice(0, 60)) {
     lines.push(`[uid ${e.uid}] "${e.comment || '(không tên)'}" · key: ${e.key.join(', ') || '—'}`);
   }
   lines.push('');
   lines.push('=== DIỄN BIẾN GẦN NHẤT ===');
-  lines.push(recentText.slice(0, 4000));
+  lines.push(recentText.slice(0, 3500));
   lines.push('');
-  lines.push('CHỈ trả về MỘT mảng JSON các thao tác (không markdown, không giải thích):');
-  lines.push('[');
-  lines.push('  {"op":"create","comment":"Tên entry","key":["từ khóa 1","từ khóa 2"],"content":"Nội dung súc tích, gạch đầu dòng, **in đậm** danh từ riêng","constant":false,"position":1,"order":100},');
-  lines.push('  {"op":"update","uid":3,"appendContent":"Thông tin mới bổ sung","addKeys":["từ khóa mới"]},');
-  lines.push('  {"op":"delete","uid":5}');
-  lines.push(']');
-  lines.push('Quy tắc: content ngắn gọn, đúng trọng tâm; key là những từ sẽ xuất hiện trong truyện để kích hoạt entry; constant=true chỉ cho luật thế giới cốt lõi. Nếu không cần thay đổi gì, trả về [].');
+  lines.push('CHỈ trả về MỘT object JSON (không markdown, không giải thích):');
+  lines.push('{');
+  lines.push('  "lore": [');
+  lines.push('    {"op":"create","comment":"Tên entry","key":["từ khóa 1","từ khóa 2"],"content":"Nội dung súc tích, **in đậm** danh từ riêng","constant":false,"position":1,"order":100},');
+  lines.push('    {"op":"update","uid":3,"appendContent":"Thông tin mới","addKeys":["từ khóa mới"]},');
+  lines.push('    {"op":"delete","uid":5}');
+  lines.push('  ],');
+  lines.push('  "world": [');
+  lines.push('    {"op":"delta","path":"npcs.<id>.affinity","value":-5},');
+  lines.push('    {"op":"replace","path":"npcs.<id>.agenda","value":"mưu cầu mới"},');
+  lines.push('    {"op":"insert","path":"timeline","value":{"turn":0,"event":"Diễn biến nền...","category":"world","visibility":"public","witnesses":[]}}');
+  lines.push('  ]');
+  lines.push('}');
+  lines.push('Quy tắc WORLD: CHỈ dùng [id] đã có trong CHÍNH SỬ; KHÔNG tạo id/thực thể mới không có thật; KHÔNG cho world.time chạy lùi; đổi ÍT mà ĐÚNG. Không cần đổi gì thì để "world":[]. Không cần sửa lore thì để "lore":[].');
   return lines.join('\n');
 }
 
@@ -280,21 +305,38 @@ interface LoreOp {
   order?: number;
 }
 
-function parseLoreOps(raw: string): LoreOp[] {
+const WORLD_OPS = new Set(['replace', 'delta', 'insert', 'remove', 'move']);
+
+function toWorldOps(arr: unknown): MvuPatchOp[] {
+  if (!Array.isArray(arr)) return [];
+  return arr.filter((o: any) =>
+    o && typeof o.op === 'string' && WORLD_OPS.has(o.op) &&
+    (typeof o.path === 'string' || (o.op === 'move' && typeof o.from === 'string' && typeof o.to === 'string'))
+  ) as MvuPatchOp[];
+}
+
+/** Parse phản hồi gộp: object {lore, world} — hoặc mảng thuần (tương thích cũ = chỉ lore). */
+function parseMaintenance(raw: string): { lore: LoreOp[]; world: MvuPatchOp[] } {
   let s = raw.trim();
   const fence = /```(?:json)?\s*([\s\S]*?)```/.exec(s);
   if (fence) s = fence[1].trim();
-  if (!s.startsWith('[') && !s.startsWith('{')) {
-    const a = s.indexOf('['), b = s.lastIndexOf(']');
-    if (a >= 0 && b > a) s = s.slice(a, b + 1);
-  }
+
+  let parsed: any = null;
   try {
-    const parsed = JSON.parse(s);
-    const arr = Array.isArray(parsed) ? parsed : [parsed];
-    return arr.filter((o: any) => o && typeof o.op === 'string');
+    parsed = JSON.parse(s);
   } catch {
-    return [];
+    const a = s.indexOf('{'), b = s.lastIndexOf('}');
+    if (a >= 0 && b > a) { try { parsed = JSON.parse(s.slice(a, b + 1)); } catch { /* noop */ } }
   }
+
+  if (Array.isArray(parsed)) {
+    return { lore: parsed.filter((o: any) => o && typeof o.op === 'string'), world: [] };
+  }
+  if (parsed && typeof parsed === 'object') {
+    const lore = Array.isArray(parsed.lore) ? parsed.lore.filter((o: any) => o && typeof o.op === 'string') : [];
+    return { lore, world: toWorldOps(parsed.world) };
+  }
+  return { lore: [], world: [] };
 }
 
 function applyLoreOps(ops: LoreOp[]): { created: number; updated: number; deleted: number } {
@@ -342,10 +384,13 @@ export async function runLorebookMaintenance(recentText: string): Promise<{ crea
   if (!conn) { st.setStatus('error', 'Chưa cấu hình kết nối AI'); return null; }
   if (!recentText.trim()) return null;
 
-  st.setStatus('running', 'Đang cập nhật Sổ Tri Thức...');
+  st.setStatus('running', 'Đang cập nhật Chính Sử...');
   try {
-    const prompt = buildMaintenancePrompt(recentText, st.entries);
-    const systemContent = 'Bạn là trợ lý quản lý World Info. Chỉ trả về JSON thuần.';
+    const gameState = useChatStore.getState().statData;
+    const stateBlock = renderStateForAI(gameState);
+    const livingWorld = gameState.settings.playerCentric === false;
+    const prompt = buildMaintenancePrompt(recentText, st.entries, stateBlock, livingWorld);
+    const systemContent = 'Bạn là Người Giữ Chính Sử của game. Chỉ trả về MỘT object JSON thuần {lore, world}.';
 
     // Build body matching provider format (same as apiClient.ts)
     let body: Record<string, unknown>;
@@ -408,9 +453,18 @@ export async function runLorebookMaintenance(recentText: string): Promise<{ crea
         break;
     }
 
-    const ops = parseLoreOps(text);
-    const res = applyLoreOps(ops);
-    st.setStatus('done', `Sổ Tri Thức: +${res.created} mới · ~${res.updated} sửa · -${res.deleted} xóa`);
+    const { lore, world } = parseMaintenance(text);
+    const res = applyLoreOps(lore);
+
+    // Áp patch WORLD (world-sim + canon-fix) qua pipeline an toàn của chatStore.
+    let worldApplied = 0;
+    if (world.length > 0) {
+      try { worldApplied = useChatStore.getState().applyBackgroundPatches(world).applied; }
+      catch (e) { console.warn('[Chính Sử] world patch error:', e); }
+    }
+
+    const worldMsg = worldApplied > 0 ? ` · ${worldApplied} diễn biến` : '';
+    st.setStatus('done', `Chính Sử: +${res.created} lore · ~${res.updated} · -${res.deleted}${worldMsg}`);
     setTimeout(() => { if (useLorebookStore.getState().status === 'done') useLorebookStore.getState().setStatus('idle'); }, 4000);
     return res;
   } catch (err) {

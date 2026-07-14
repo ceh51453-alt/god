@@ -24,8 +24,8 @@ const SAMPLING_PARAMS = [
   { key: 'min_p', label: 'Min P', min: 0, max: 1, step: 0.01, default: 0.05 },
   { key: 'frequency_penalty', label: 'Frequency Penalty', min: -2, max: 2, step: 0.1, default: 0 },
   { key: 'presence_penalty', label: 'Presence Penalty', min: -2, max: 2, step: 0.1, default: 0 },
-  { key: 'max_tokens', label: 'Max Tokens', min: 64, max: 32768, step: 64, default: 2048 },
-  { key: 'max_context_tokens', label: 'Max Context', min: 1024, max: 131072, step: 1024, default: 8192 },
+  { key: 'max_tokens', label: 'Max Tokens', min: 64, max: 131072, step: 64, default: 8192 },
+  { key: 'max_context_tokens', label: 'Max Context', min: 1024, max: 2097152, step: 1024, default: 32768 },
 ];
 
 /** Auto-expand slider max so preset values aren't clipped */
@@ -466,7 +466,7 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
                     className="input param-number"
                     type="number"
                     min={1000}
-                    max={128000}
+                    max={1048576}
                     step={1000}
                     value={profile.sampling.thinkingBudget}
                     onChange={e => updateProfile(profile.id, {
@@ -478,7 +478,7 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
                   className="slider"
                   type="range"
                   min={1000}
-                  max={128000}
+                  max={1048576}
                   step={1000}
                   value={profile.sampling.thinkingBudget}
                   onChange={e => updateProfile(profile.id, {

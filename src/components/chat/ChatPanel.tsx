@@ -130,6 +130,12 @@ export const ChatPanel: React.FC = () => {
 
   // ── Core send function with Prompt Builder ──
   const triggerAI = useCallback(async (userText: string) => {
+    // Chặn gọi trùng: React.StrictMode (dev) chạy effect 2 lần nên auto-trigger /
+    // pendingDecree có thể gọi triggerAI 2 lần song song → 2 luồng SSE cùng ghi
+    // vào streamingThinkingText → suy nghĩ bị LẶP nội dung. Đọc state tươi từ
+    // store (không dựa closure) để lần gọi thứ hai bail ra ngay.
+    if (useChatStore.getState().isStreaming) return;
+
     const profile = useConnectionStore.getState().getActiveProfile();
     if (!(profile.baseUrl || profile.proxyUrl) || !profile.selectedModel) {
       useChatStore.getState().setShowSettings(true);
@@ -270,6 +276,9 @@ export const ChatPanel: React.FC = () => {
         maxAttempts: profile.retryCount,
         onRetry: (attempt, max) => {
           setRetrying(attempt, max);
+          // Xóa buffer của lần thử trước — nếu không, stream mới sẽ append tiếp
+          // vào thinking/text cũ gây LẶP nội dung.
+          setStreaming(true);
         },
       });
     } catch (err) {

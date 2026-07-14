@@ -10,6 +10,7 @@ import { PowersView } from '@/components/game/PowersView';
 import { RelationsView } from '@/components/game/RelationsView';
 import { CodexView } from '@/components/game/CodexView';
 import { CreationStudio } from '@/components/studio/CreationStudio';
+import { seasonLabel } from '@/engine/mvu/timeEngine';
 import {
   ChatIcon, MapIcon, TempleIcon, SwordIcon, CrownIcon,
   ScrollIcon, SettingsIcon, DivinePowerIcon, CalendarIcon,
@@ -92,6 +93,7 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ onBackToTitle }) => {
   const showStatusPanel = useChatStore(s => s.showStatusPanel);
   const setShowStatusPanel = useChatStore(s => s.setShowStatusPanel);
   const game = useChatStore(s => s.game);
+  const worldTime = useChatStore(s => s.statData.world.time);
 
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [showGameSettings, setShowGameSettings] = React.useState(false);
@@ -138,9 +140,8 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ onBackToTitle }) => {
         <div className="topbar-center">
           <CalendarIcon size={14} color="var(--text-muted)" />
           <span className="topbar-era">
-            {game.path === 'creator' ? `Chu Kỳ ${game.turnCount}` :
-             game.path === 'god' ? `Kỷ Nguyên ${game.turnCount}` :
-             `Ngày ${game.turnCount}`}
+            {/* Đồng hồ in-world THẬT từ engine (world.time), kèm số lượt */}
+            {`${worldTime.epochLabel ? worldTime.epochLabel + ' · ' : ''}Năm ${worldTime.year} · ${seasonLabel(worldTime)} · Ngày ${worldTime.day + 1} · Lượt ${game.turnCount}`}
           </span>
           <span className="topbar-save-dot" title="Tự động lưu" />
         </div>

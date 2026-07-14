@@ -51,7 +51,7 @@ const LORE_DB: LoreEntry[] = [
 
   // ── Mortal Path ──
   { id: 'mortal_cultivation', category: 'cultivation', tags: ['mortal', 'cultivation', 'power'],
-    content: 'Phàm nhân có thể tu luyện để vượt qua giới hạn: Luyện Thể → Luyện Khí → Luyện Thần → Hóa Thần → Phong Thần. Mỗi cảnh giới mở ra khả năng mới.',
+    content: 'Phàm nhân có thể tu luyện để vượt qua giới hạn: Luyện Thể → Luyện Khí → Trúc Cơ → Kim Đan → Nguyên Anh → Hóa Thần → Phong Thần. Mỗi cảnh giới mở ra khả năng mới.',
     relevance: 1 },
   { id: 'mortal_faction', category: 'society', tags: ['mortal', 'faction', 'politics'],
     content: 'Thế giới phàm nhân đầy phe phái: triều đình, giáo phái, bang hội, bộ tộc. Mỗi thế lực có mục tiêu, đồng minh, và kẻ thù riêng.',

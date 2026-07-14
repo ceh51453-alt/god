@@ -44,9 +44,11 @@ export function guardPatches(state: StatData, patches: MvuPatchOp[]): GuardResul
 
     const path = opPath(op);
 
-    // 2) Chống thực thể ma: replace/delta/remove vào <coll>.<id> mà id chưa tồn tại.
+    // 2) Chống thực thể ma: mọi op (kể cả insert lồng sâu, vd
+    //    insert npcs.<id>.knows hoặc insert npcs.<id> + key) vào <coll>.<id>
+    //    mà id chưa tồn tại — insert lồng vẫn tạo được bản ghi ma sai shape.
     const m = /^(npcs|entities|quests)\.([^.]+)(?:\.|$)/.exec(path);
-    if (m && (op.op === 'replace' || op.op === 'delta' || op.op === 'remove')) {
+    if (m && (op.op === 'replace' || op.op === 'delta' || op.op === 'remove' || op.op === 'insert')) {
       const coll = m[1], id = m[2];
       if (!known[coll].has(id)) {
         dropped.push({ op, reason: `bỏ ${op.op} "${path}" — id "${id}" chưa tồn tại (tránh tạo thực thể rỗng). Muốn thêm mới thì dùng insert.` });

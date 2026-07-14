@@ -7,7 +7,7 @@ import {
   CREATOR_TRAITS, GOD_TRAITS, MORTAL_TRAITS,
   CREATOR_REPUTATIONS, GOD_REPUTATIONS, MORTAL_REPUTATIONS,
   CREATOR_CRISES, GOD_CRISES, MORTAL_CRISES,
-  CREATOR_DOMAINS
+  CREATOR_DOMAINS, MORTAL_CLASSES
 } from './creationData';
 import { CREATOR_PRESETS, GOD_PRESETS, MORTAL_PRESETS, type CharacterPreset } from './creationPresets';
 import { generateCharacter } from '@/engine/api/characterGen';
@@ -63,11 +63,29 @@ export const CreationWizard: React.FC<Props> = ({ path, onComplete, onBack }) =>
   const goBack = () => { if (stepIndex > 0) setStepIndex(stepIndex - 1); else onBack(); };
 
   const handleConfirm = () => {
-    if (char.crisis === 'custom') {
-      onComplete({ ...char, crisis: customCrisis || 'Tự định nghĩa' });
+    // Đổi id slug → tên tiếng Việt trước khi ra khỏi wizard — nếu không,
+    // prompt/state/UI sẽ hiện "feared"/"peasant"/"chaos" thay vì tên thật.
+    const out: CharacterData = { ...char };
+
+    const rep = reputations.find(r => r.id === out.reputation);
+    if (rep) out.reputation = rep.name;
+
+    if (out.crisis === 'custom') {
+      out.crisis = customCrisis || 'Tự định nghĩa';
+    } else if (out.crisis === 'none') {
+      out.crisis = ''; // "bình yên" = không có khủng hoảng, đừng nhồi vào prompt
     } else {
-      onComplete(char);
+      const cr = crises.find(c => c.id === out.crisis);
+      if (cr) out.crisis = cr.name;
     }
+
+    const dom = CREATOR_DOMAINS.find(d => d.id === out.cosmicDomain);
+    if (dom) out.cosmicDomain = dom.id === 'custom' ? '' : dom.name; // custom: mô tả nằm ở backstory
+
+    const mc = MORTAL_CLASSES.find(c => c.id === out.mortalClass);
+    if (mc) out.mortalClass = mc.id === 'custom' ? (out.mortalOrigin || '') : mc.name;
+
+    onComplete(out);
   };
 
   // ── Path color ──
@@ -374,15 +392,7 @@ const CosmicDomainStep: React.FC<StepCtx> = ({ char, updateChar }) => {
 
 // ── ORIGIN (Mortal only) ──
 const OriginStep: React.FC<StepCtx> = ({ char, updateChar }) => {
-  const classes = [
-    { id: 'noble', name: 'Thế Gia Vọng Tộc', desc: 'Dòng dõi quý tộc, nhiều nguồn lực nhưng nhiều ràng buộc' },
-    { id: 'merchant', name: 'Thương Nhân Phú Hào', desc: 'Giàu có nhưng bị khinh thường bởi giai cấp trên' },
-    { id: 'peasant', name: 'Bạch Đinh Bần Nông', desc: 'Không có gì ngoài ý chí kiên cường' },
-    { id: 'soldier', name: 'Quân Hộ Chiến Binh', desc: 'Lớn lên trong quân ngũ, thành thạo chiến đấu' },
-    { id: 'scholar', name: 'Hàn Sĩ Thư Sinh', desc: 'Bác học đa tài nhưng nghèo túng' },
-    { id: 'outlaw', name: 'Lưu Dân Giang Hồ', desc: 'Sống ngoài vòng pháp luật, tự do nhưng nguy hiểm' },
-    { id: 'custom', name: 'Tự Định Nghĩa', desc: 'Nhập xuất thân theo ý ngươi' },
-  ];
+  const classes = MORTAL_CLASSES;
 
   return (
     <div className="step-fields">
@@ -825,6 +835,9 @@ const PreviewStep: React.FC<StepCtx> = ({ path, char, traits: traitDefs, attribu
   const pathName = path === 'creator' ? 'Sáng Thế Thần' : path === 'god' ? 'Thần' : 'Phàm Nhân';
   const repName = reputations.find(r => r.id === char.reputation)?.name || 'Chưa chọn';
   const crisisName = crises.find(c => c.id === char.crisis)?.name || char.crisis || 'Chưa chọn';
+  // Preview chạy TRƯỚC handleConfirm nên các trường này vẫn là id — map để hiển thị
+  const mortalClassName = MORTAL_CLASSES.find(c => c.id === char.mortalClass)?.name || char.mortalClass;
+  const cosmicDomainName = CREATOR_DOMAINS.find(d => d.id === char.cosmicDomain)?.name || char.cosmicDomain;
 
   return (
     <div className="step-fields preview-fields">
@@ -858,13 +871,13 @@ const PreviewStep: React.FC<StepCtx> = ({ path, char, traits: traitDefs, attribu
         {char.cosmicDomain && (
           <div className="preview-row">
             <span className="preview-label">Miền Sáng Tạo</span>
-            <span className="preview-value">{char.cosmicDomain}</span>
+            <span className="preview-value">{cosmicDomainName}</span>
           </div>
         )}
         {char.mortalClass && (
           <div className="preview-row">
             <span className="preview-label">Giai Cấp</span>
-            <span className="preview-value">{char.mortalClass}</span>
+            <span className="preview-value">{mortalClassName}</span>
           </div>
         )}
         {char.era && (

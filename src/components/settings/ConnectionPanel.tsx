@@ -302,7 +302,8 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
                   placeholder="sk-..."
                   value={profile.apiKeys.join('\n')}
                   onChange={e => updateProfile(profile.id, {
-                    apiKeys: e.target.value.split('\n').filter(k => k.trim()),
+                    // trim từng key — key dán kèm khoảng trắng sẽ làm header sai
+                    apiKeys: e.target.value.split('\n').map(k => k.trim()).filter(Boolean),
                     currentKeyIndex: 0,
                   })}
                   rows={3}
@@ -342,7 +343,11 @@ export const ConnectionPanel: React.FC<{ onClose?: () => void }> = ({ onClose })
                 value={profile.proxyUrl}
                 onChange={e => updateProfile(profile.id, { proxyUrl: e.target.value })}
               />
-              <span className="input-hint" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Nếu điền, mọi yêu cầu sẽ đi qua proxy này (né CORS).</span>
+              <span className="input-hint" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                Có Base URL → yêu cầu đi qua proxy dạng <code>?target=&lt;base&gt;</code> (né CORS).
+                Không có Base URL → proxy được dùng LÀM endpoint (proxy/chat/completions).
+                Thiếu https:// hay lỡ dán cả /chat/completions cũng được tự sửa.
+              </span>
             </div>
 
             {/* Proxy Password */}

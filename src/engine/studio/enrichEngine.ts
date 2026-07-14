@@ -5,7 +5,8 @@
    ═══════════════════════════════════════════════════════ */
 
 import { useEnrichStore } from '@/stores/enrichStore';
-import { useConnectionStore, type ConnectionProfile } from '@/stores/connectionStore';
+import { useConnectionStore } from '@/stores/connectionStore';
+import { buildChatUrl, buildHeaders, buildSimpleBody, extractResponseText, normalizeUserUrl } from '@/engine/api/apiClient';
 import { useStudioStore } from '@/components/studio/studioStore';
 import {
   CATEGORIES, getCategory,
@@ -197,49 +198,70 @@ function applyEnrichment(
 
 /* ── Build connection config for enrichment ── */
 
-function getEnrichConnectionConfig(): { url: string; headers: Record<string, string>; model: string } | null {
+interface EnrichConn {
+  url: string;
+  headers: Record<string, string>;
+  makeBody: (system: string, user: string) => Record<string, unknown>;
+  extract: (data: any) => string;
+}
+
+function getEnrichConnectionConfig(): EnrichConn | null {
   const enrichState = useEnrichStore.getState();
+  const sampling = enrichState.sampling;
 
   if (enrichState.proxySource === 'custom') {
-    const baseUrl = (enrichState.customBaseUrl || enrichState.customProxyUrl).replace(/\/+$/, '');
-    if (!baseUrl) return null;
+    // Nguồn tùy chỉnh: luôn coi là endpoint OpenAI-compat.
+    // Cùng ngữ nghĩa với apiClient: có base → proxy?target=<base>; CHỈ có proxy
+    // → proxy làm base luôn (trước đây target trỏ vào chính proxy — sai).
+    const base = normalizeUserUrl(enrichState.customBaseUrl);
+    const proxy = normalizeUserUrl(enrichState.customProxyUrl);
+    if (!base && !proxy) return null;
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const effectiveKey = enrichState.customApiKey || enrichState.customProxyPassword || '';
+    const effectiveKey = (enrichState.customApiKey || enrichState.customProxyPassword || '').trim();
     if (effectiveKey) headers['Authorization'] = `Bearer ${effectiveKey}`;
     if (enrichState.customProxyPassword) headers['X-Proxy-Password'] = enrichState.customProxyPassword;
 
+    let url: string;
+    if (proxy && base) {
+      const sep = proxy.includes('?') ? '&' : '?';
+      url = `${proxy}${sep}target=${encodeURIComponent(`${base}/chat/completions`)}`;
+    } else {
+      url = `${proxy || base}/chat/completions`;
+    }
+
     return {
-      url: enrichState.customProxyUrl
-        ? `${enrichState.customProxyUrl.replace(/\/+$/, '')}?target=${encodeURIComponent(`${baseUrl}/chat/completions`)}`
-        : `${baseUrl}/chat/completions`,
+      url,
       headers,
-      model: enrichState.customModel || 'gpt-4o-mini',
+      makeBody: (system, user) => ({
+        model: enrichState.customModel || 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        max_tokens: sampling.max_tokens,
+        temperature: sampling.temperature,
+        top_p: sampling.top_p,
+        frequency_penalty: sampling.frequency_penalty,
+        presence_penalty: sampling.presence_penalty,
+        stream: false,
+      }),
+      extract: (data) => data?.choices?.[0]?.message?.content || '',
     };
   }
 
-  // Default: use connection store
+  // Default: dùng profile kết nối chính — URL/headers/body theo ĐÚNG provider
   const profile = useConnectionStore.getState().getActiveProfile();
-  if (!(profile.baseUrl || profile.proxyUrl)) return null;
-
-  const base = profile.baseUrl ? profile.baseUrl.replace(/\/+$/, '') : '';
-  const key = profile.apiKeys[profile.currentKeyIndex] || '';
-  const effectiveKey = key || profile.proxyPassword || '';
-
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (effectiveKey) headers['Authorization'] = `Bearer ${effectiveKey}`;
-  if (profile.proxyPassword) headers['X-Proxy-Password'] = profile.proxyPassword;
-
-  let url = `${base}/chat/completions`;
-  if (profile.proxyUrl) {
-    const proxy = profile.proxyUrl.replace(/\/+$/, '');
-    url = base ? `${proxy}?target=${encodeURIComponent(url)}` : `${proxy}/chat/completions`;
-  }
+  if (!(profile.baseUrl || profile.proxyUrl) || !profile.selectedModel) return null;
 
   return {
-    url,
-    headers,
-    model: profile.selectedModel || 'gpt-4o-mini',
+    url: buildChatUrl(profile, false),
+    headers: buildHeaders(profile),
+    makeBody: (system, user) => buildSimpleBody(profile, system, user, {
+      maxTokens: sampling.max_tokens,
+      temperature: sampling.temperature,
+    }),
+    extract: (data) => extractResponseText(profile.provider, data),
   };
 }
 
@@ -282,19 +304,10 @@ export async function runEnrich(narrativeContext: string): Promise<EnrichResult[
     const response = await fetch(conn.url, {
       method: 'POST',
       headers: conn.headers,
-      body: JSON.stringify({
-        model: conn.model,
-        messages: [
-          { role: 'system', content: 'Bạn là trợ lý worldbuilding. Trả về JSON thuần, không markdown.' },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: enrichStore.sampling.max_tokens,
-        temperature: enrichStore.sampling.temperature,
-        top_p: enrichStore.sampling.top_p,
-        frequency_penalty: enrichStore.sampling.frequency_penalty,
-        presence_penalty: enrichStore.sampling.presence_penalty,
-        stream: false,
-      }),
+      body: JSON.stringify(conn.makeBody(
+        'Bạn là trợ lý worldbuilding. Trả về JSON thuần, không markdown.',
+        prompt,
+      )),
       signal: AbortSignal.timeout(30000),
     });
 
@@ -303,7 +316,7 @@ export async function runEnrich(narrativeContext: string): Promise<EnrichResult[
     }
 
     const data = await response.json();
-    const rawText = data.choices?.[0]?.message?.content || '';
+    const rawText = conn.extract(data);
     const enrichData = parseEnrichResponse(rawText);
 
     const results: EnrichResult[] = [];

@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════════════════ */
 
 import type { StatData } from './schema';
+import { StatDataSchema } from './schema';
 
 // ── Patch Operation Types ──
 
@@ -205,16 +206,42 @@ export function applyPatches(state: StatData, ops: MvuPatchOp[]): StatData {
   return result;
 }
 
+// ── Apply patches with schema validation per-op ──
+// Sau mỗi op, chạy StatDataSchema để clamp số & chặn kiểu sai (vd AI replace
+// resources.power = "chuỗi"). Op nào làm state không còn hợp lệ thì BỎ —
+// tránh state hỏng âm thầm rồi mất save khi reload (parse fail → reset).
+
+export function applyPatchesValidated(
+  state: StatData,
+  ops: MvuPatchOp[],
+): { state: StatData; dropped: MvuPatchOp[] } {
+  let cur = state;
+  const dropped: MvuPatchOp[] = [];
+  for (const op of ops) {
+    const next = applyPatchOp(cur, op);
+    if (next === cur) continue;
+    const parsed = StatDataSchema.safeParse(next);
+    if (parsed.success) cur = parsed.data;
+    else dropped.push(op);
+  }
+  return { state: cur, dropped };
+}
+
 // ── Filter out unsafe ops from AI ──
 
 export function filterAIPatches(ops: MvuPatchOp[]): MvuPatchOp[] {
   return ops.filter(op => {
-    const path = 'path' in op ? op.path : ('to' in op ? op.to : '');
-    // Block writes to readonly fields
-    if (isReadonlyPath(path)) return false;
-    // Block writes to _derived, _seed, _version, _turnCount, _affinityStage
-    const parts = path.split('.');
-    if (parts.some(p => p.startsWith('_'))) return false;
+    // Kiểm cả path/to/from — move từ field readonly cũng phải chặn
+    const paths: string[] = [];
+    if ('path' in op && op.path) paths.push(op.path);
+    if ('to' in op && op.to) paths.push(op.to);
+    if ('from' in op && op.from) paths.push(op.from);
+    for (const path of paths) {
+      // Block writes to readonly fields
+      if (isReadonlyPath(path)) return false;
+      // Block writes to _derived, _seed, _version, _turnCount, _affinityStage
+      if (path.split('.').some(p => p.startsWith('_'))) return false;
+    }
     return true;
   });
 }

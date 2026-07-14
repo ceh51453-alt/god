@@ -241,14 +241,18 @@ const QUICK_ACTIONS: Record<GamePath, { label: string; prompt: string }[]> = {
 };
 
 const ResourceMechanics: React.FC<ResourceMechanicsProps> = ({ path, resources, pathAccent }) => {
-  const addMessage = useChatStore(s => s.addMessage);
+  const setPendingDecree = useChatStore(s => s.setPendingDecree);
+  const setActiveView = useChatStore(s => s.setActiveView);
 
   const costs = path === 'creator' ? CREATOR_COSTS : path === 'god' ? GOD_COSTS : MORTAL_COSTS;
   const actions = QUICK_ACTIONS[path] || [];
 
   const handleQuickAction = useCallback((prompt: string) => {
-    addMessage({ role: 'user', content: prompt });
-  }, [addMessage]);
+    // Đẩy qua pendingDecree + chuyển về chat — ChatPanel mount sẽ nhận lệnh
+    // và gọi AI (addMessage trần chỉ thêm text, KHÔNG có phản hồi).
+    setPendingDecree(prompt);
+    setActiveView('chat');
+  }, [setPendingDecree, setActiveView]);
 
   return (
     <>

@@ -59,7 +59,7 @@ export const ChatPanel: React.FC = () => {
   const {
     messages, isStreaming, streamingText, streamingThinkingText, retryingAttempt, retryingMax,
     addMessage, setStreaming, appendStreamText, appendStreamThinkingText, setRetrying,
-    updateLastAssistantMessage, game, setGame,
+    updateLastAssistantMessage, game,
     statData, processAIResponse, initStatData,
     pendingDecree, setPendingDecree,
   } = useChatStore(useShallow(s => ({
@@ -76,7 +76,6 @@ export const ChatPanel: React.FC = () => {
     setRetrying: s.setRetrying,
     updateLastAssistantMessage: s.updateLastAssistantMessage,
     game: s.game,
-    setGame: s.setGame,
     statData: s.statData,
     processAIResponse: s.processAIResponse,
     initStatData: s.initStatData,
@@ -129,7 +128,7 @@ export const ChatPanel: React.FC = () => {
   }, [game.gameStarted, autoTriggered, messages, path]);
 
   // ── Core send function with Prompt Builder ──
-  const triggerAI = useCallback(async (userText: string) => {
+  const triggerAI = useCallback(async (userText: string, opts?: { isReroll?: boolean }) => {
     // Chặn gọi trùng: React.StrictMode (dev) chạy effect 2 lần nên auto-trigger /
     // pendingDecree có thể gọi triggerAI 2 lần song song → 2 luồng SSE cùng ghi
     // vào streamingThinkingText → suy nghĩ bị LẶP nội dung. Đọc state tươi từ
@@ -143,7 +142,23 @@ export const ChatPanel: React.FC = () => {
     }
 
     setRewinds(0); // lượt mới → reset bộ đếm quay lại
-    addMessage({ role: 'user', content: userText });
+
+    // Chụp lịch sử TRƯỚC khi thêm tin nhắn mới — buildPrompt tự đẩy userText
+    // vào cuối, nên nếu lấy lịch sử SAU addMessage thì lệnh người chơi bị
+    // NHÂN ĐÔI trong prompt gửi AI.
+    let history = useChatStore.getState().messages.filter(m => !m.streaming);
+    if (opts?.isReroll) {
+      // Reroll: tin nhắn user đã có sẵn ở cuối store — loại nó khỏi lịch sử
+      // (buildPrompt sẽ tự thêm lại), KHÔNG add bản sao vào chat.
+      for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].role === 'user') {
+          history = [...history.slice(0, i), ...history.slice(i + 1)];
+          break;
+        }
+      }
+    } else {
+      addMessage({ role: 'user', content: userText });
+    }
     addMessage({ role: 'assistant', content: '', streaming: true });
     setStreaming(true);
     scrollToBottom();
@@ -152,12 +167,11 @@ export const ChatPanel: React.FC = () => {
     abortRef.current = abortController;
 
     // ── Build prompt with full pipeline ──
-    const currentState = useChatStore.getState();
     const promptMessages = buildPrompt({
-      statData: currentState.statData,
+      statData: useChatStore.getState().statData,
       path: path!,
       character: game.character,
-      messages: currentState.messages.filter(m => !m.streaming),
+      messages: history,
       userMessage: userText,
       studioEntities: useStudioStore.getState().entities,
     });
@@ -218,25 +232,20 @@ export const ChatPanel: React.FC = () => {
           }
 
           // ── Process AI response through MVU extractor ──
-          const { cleanText, patches } = processAIResponse(stripped);
-
-          // If no patches were extracted, just update the message normally
-          if (patches.length === 0) {
-            updateLastAssistantMessage(cleanText || stripped, thinkingText || undefined);
-            setGame({ turnCount: game.turnCount + 1 });
-          } else {
-            // processAIResponse already updates message; but need to add thinkingText
-            if (thinkingText) {
-              const store = useChatStore.getState();
-              const msgs = [...store.messages];
-              for (let i = msgs.length - 1; i >= 0; i--) {
-                if (msgs[i].role === 'assistant') {
-                  msgs[i] = { ...msgs[i], thinkingText };
-                  break;
-                }
+          // processAIResponse giờ LUÔN cập nhật message + tăng lượt (kể cả khi
+          // không có patch) — chỉ cần gắn thêm thinkingText nếu có.
+          const { cleanText } = processAIResponse(stripped);
+          if (thinkingText) {
+            const store = useChatStore.getState();
+            const msgs = [...store.messages];
+            for (let i = msgs.length - 1; i >= 0; i--) {
+              if (msgs[i].role === 'assistant') {
+                msgs[i] = { ...msgs[i], thinkingText };
+                break;
               }
-              useChatStore.setState({ messages: msgs });
             }
+            useChatStore.setState({ messages: msgs });
+            useChatStore.getState().saveToStorage();
           }
 
           setStreaming(false);
@@ -282,14 +291,19 @@ export const ChatPanel: React.FC = () => {
         },
       });
     } catch (err) {
+      if (abortController.signal.aborted) {
+        // Người chơi chủ động dừng — handleAbort đã dọn UI, đừng đè "Error:".
+        setStreaming(false);
+        setRetrying(null);
+        return;
+      }
       const error = err instanceof Error ? err.message : 'Unknown error';
       updateLastAssistantMessage(`Error: ${error}`);
       setStreaming(false);
       setRetrying(null);
     }
   }, [path, game, addMessage, setStreaming, appendStreamText, appendStreamThinkingText,
-      updateLastAssistantMessage, setRetrying, scrollToBottom, setGame,
-      processAIResponse, statData]);
+      updateLastAssistantMessage, setRetrying, scrollToBottom, processAIResponse]);
 
   // ── Nhận "Lời Tuyên Sáng Thế" từ Xưởng Sáng Thế ──
   useEffect(() => {
@@ -308,13 +322,27 @@ export const ChatPanel: React.FC = () => {
 
   const handleAbort = useCallback(() => {
     abortRef.current?.abort();
-    const thinkingSnap = useChatStore.getState().streamingThinkingText || undefined;
+    const st = useChatStore.getState();
+    const thinkingSnap = st.streamingThinkingText || undefined;
+    const text = st.streamingText;
     setStreaming(false);
     setRetrying(null);
-    if (streamingText) {
-      updateLastAssistantMessage(streamingText + '\n\n[Gián đoạn]', thinkingSnap);
+    if (text) {
+      updateLastAssistantMessage(text + '\n\n[Gián đoạn]', thinkingSnap);
+    } else {
+      // Chưa có chữ nào — gỡ bong bóng assistant rỗng đang stream
+      useChatStore.setState(s => {
+        const msgs = [...s.messages];
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          if (msgs[i].role === 'assistant' && msgs[i].streaming) {
+            msgs.splice(i, 1);
+            break;
+          }
+        }
+        return { messages: msgs };
+      });
     }
-  }, [setStreaming, setRetrying, streamingText, updateLastAssistantMessage]);
+  }, [setStreaming, setRetrying, updateLastAssistantMessage]);
 
   // ── Reroll handler ──
   const handleReroll = useCallback((msgId: string) => {
@@ -334,14 +362,17 @@ export const ChatPanel: React.FC = () => {
 
     if (!userMsg) return;
 
-    // Rollback state to before this message's patches were applied
+    // Hoàn tác patch của lượt này (snapshot đã lưu TRƯỚC khi áp) — nếu không
+    // rollback, patch cũ + patch của lượt mới sẽ bị áp CHỒNG.
     const msg = store.messages[msgIdx];
-    if (msg.turnNumber != null) {
+    if (msg.turnNumber != null && msg.patches && msg.patches.length > 0) {
       store.rollbackToTurn(msg.turnNumber);
     }
 
-    // Re-send
-    triggerAI(userMsg);
+    // Gỡ phản hồi cũ (và mọi thứ sau nó), GIỮ tin nhắn người chơi — rồi
+    // gửi lại ở chế độ reroll (không nhân đôi user message).
+    useChatStore.setState({ messages: store.messages.slice(0, msgIdx) });
+    triggerAI(userMsg, { isReroll: true });
   }, [isStreaming, triggerAI]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

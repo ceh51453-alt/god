@@ -242,7 +242,26 @@ ${charName} là thần linh${character.divineRealm ? ` của ${character.divineR
 ${charName}${character.mortalClass ? ` là ${character.mortalClass}` : ''} trong một thế giới đầy thần linh và nguy hiểm.`,
   };
 
-  return [intros[path] ?? '', commonRules, staticRules(path)]
+  // Hồ sơ khởi tạo — các trường KHÔNG có trong statData/renderStateForAI
+  // (appearance, backstory, quy luật vũ trụ, đồng hành...) phải nhồi ở đây,
+  // nếu không dữ liệu người chơi nhập ở wizard sẽ không bao giờ tới AI.
+  const profile: string[] = [];
+  if (character.appearance) profile.push(`- Ngoại hình: ${character.appearance}`);
+  if (character.eraDescription) profile.push(`- Bối cảnh thời đại: ${character.eraDescription}`);
+  if (character.mortalOrigin) profile.push(`- Xuất thân: ${character.mortalOrigin}`);
+  if (character.customTraits) profile.push(`- Bẩm phú riêng: ${character.customTraits}`);
+  if (character.cosmicRules) profile.push(`- Quy luật vũ trụ người chơi đặt: ${character.cosmicRules}`);
+  if (character.backstory) profile.push(`- Bối cảnh bổ sung: ${character.backstory}`);
+  if (character.followerName) {
+    const fa = Object.entries(character.followerAttributes || {})
+      .map(([k, v]) => `${k}: ${v}`).join(', ');
+    profile.push(`- Đồng hành khởi đầu: ${character.followerName}${character.followerDesc ? ` — ${character.followerDesc}` : ''}${fa ? ` (${fa})` : ''}`);
+  }
+  const profileBlock = profile.length
+    ? `HỒ SƠ KHỞI TẠO (bất biến — tôn trọng khi kể):\n${profile.join('\n')}`
+    : '';
+
+  return [intros[path] ?? '', profileBlock, commonRules, staticRules(path)]
     .filter(Boolean)
     .join('\n\n');
 }

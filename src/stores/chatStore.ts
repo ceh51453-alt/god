@@ -4,7 +4,7 @@ import { defaultCharacter } from '@/components/creation/creationData';
 import type { StatData } from '@/engine/mvu/schema';
 import { StatDataSchema, defaultTime } from '@/engine/mvu/schema';
 import type { MvuPatchOp } from '@/engine/mvu/patchEngine';
-import { applyPatches, filterAIPatches } from '@/engine/mvu/patchEngine';
+import { applyPatchesValidated, filterAIPatches } from '@/engine/mvu/patchEngine';
 import { deriveAffinityStage } from '@/engine/mvu/schema';
 import { normalizeTime } from '@/engine/mvu/timeEngine';
 import { resolveEntityPatches } from '@/engine/canon/entityRegistry';
@@ -113,9 +113,12 @@ function saveToActiveSlot(game: GameState, messages: ChatMessage[], statData: St
 function loadFromSlot(slotId: string): { game: GameState; messages: ChatMessage[]; statData?: StatData } | null {
   const data = loadSlot(slotId);
   if (!data) return null;
-  // Import snapshots if present
+  // Import snapshots if present — nếu save không có, PHẢI dọn snapshot của
+  // slot trước, kẻo "Quay Lại" trả về state của save khác.
   if (data.snapshots) {
     importSnapshots(data.snapshots as Parameters<typeof importSnapshots>[0]);
+  } else {
+    clearSnapshots();
   }
   return data;
 }
@@ -306,9 +309,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   applyMvuPatches: (patches) => {
     set(state => {
-      let newState = applyPatches(state.statData, patches);
-      newState = runDerivedEffects(newState);
-      return { statData: newState };
+      const { state: applied, dropped } = applyPatchesValidated(state.statData, patches);
+      if (dropped.length > 0) console.warn('[MVU] bỏ', dropped.length, 'patch không hợp lệ schema');
+      return { statData: runDerivedEffects(applied) };
     });
   },
 
@@ -319,12 +322,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     const resolved = resolveEntityPatches(s.statData, safe);
     const { patches, dropped } = guardPatches(s.statData, resolved);
     if (patches.length === 0) return { applied: 0, dropped: dropped.length };
-    let ns = applyPatches(s.statData, patches);
-    ns = runDerivedEffects(ns);       // KHÔNG tăng _turnCount (đây là diễn biến nền)
+    const { state: applied, dropped: invalid } = applyPatchesValidated(s.statData, patches);
+    const ns = runDerivedEffects(applied); // KHÔNG tăng _turnCount (đây là diễn biến nền)
     set({ statData: ns });
     const f = get();
     if (f.game.gameStarted) saveToActiveSlot(f.game, f.messages, f.statData);
-    return { applied: patches.length, dropped: dropped.length };
+    return { applied: patches.length - invalid.length, dropped: dropped.length + invalid.length };
   },
 
   processAIResponse: (rawContent) => {
@@ -342,42 +345,53 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       console.warn('[Canon Guard] bỏ', dropped.length, 'patch mâu thuẫn:', dropped.map(d => d.reason));
     }
 
+    const s = get();
+    const prevTurn = s.statData._turnCount;
+    let newState = s.statData;
+    let invalid: MvuPatchOp[] = [];
+
     if (patches.length > 0) {
-      const s = get();
-      // Save snapshot BEFORE applying patches
-      saveSnapshot(s.statData._turnCount, s.statData);
-
-      // Apply patches
-      let newState = applyPatches(s.statData, patches);
-      // Increment turn count
-      newState = { ...newState, _turnCount: newState._turnCount + 1 };
-      // Run derived effects
-      newState = runDerivedEffects(newState);
-
-      set({ statData: newState });
-
-      // Update the last assistant message with patch info
-      set(state => {
-        const msgs = [...state.messages];
-        for (let i = msgs.length - 1; i >= 0; i--) {
-          if (msgs[i].role === 'assistant') {
-            msgs[i] = {
-              ...msgs[i],
-              rawContent,
-              cleanContent: cleanText,
-              content: cleanText,
-              patches,
-              streaming: false,
-            };
-            break;
-          }
-        }
-        return {
-          messages: msgs,
-          game: { ...state.game, turnCount: newState._turnCount },
-        };
-      });
+      // Save snapshot BEFORE applying patches (để reroll/rewind hoàn tác được)
+      saveSnapshot(prevTurn, s.statData);
+      const applied = applyPatchesValidated(s.statData, patches);
+      newState = applied.state;
+      invalid = applied.dropped;
+      if (invalid.length > 0) {
+        console.warn('[MVU] bỏ', invalid.length, 'patch không hợp lệ schema:', invalid);
+      }
     }
+
+    // Lượt LUÔN tiến, kể cả khi AI không phát patch — giữ game.turnCount và
+    // _turnCount đồng bộ (lorebook sticky/cooldown/delay chạy theo _turnCount).
+    newState = { ...newState, _turnCount: prevTurn + 1 };
+    newState = runDerivedEffects(newState);
+    set({ statData: newState });
+
+    const appliedPatches = patches.filter(p => !invalid.includes(p));
+
+    // Update the last assistant message with content + patch info + turnNumber
+    // (turnNumber = lượt TRƯỚC khi áp — dùng cho rollback khi reroll).
+    set(state => {
+      const msgs = [...state.messages];
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant') {
+          msgs[i] = {
+            ...msgs[i],
+            rawContent,
+            cleanContent: cleanText,
+            content: cleanText || rawContent,
+            patches: appliedPatches,
+            turnNumber: prevTurn,
+            streaming: false,
+          };
+          break;
+        }
+      }
+      return {
+        messages: msgs,
+        game: { ...state.game, turnCount: newState._turnCount },
+      };
+    });
 
     // Persist the finalized turn — fix: patches path never saved,
     // so F5 dropped the latest turn's AI response.
@@ -386,7 +400,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       saveToActiveSlot(finalState.game, finalState.messages, finalState.statData);
     }
 
-    return { cleanText, patches };
+    return { cleanText, patches: appliedPatches };
   },
 
   rollbackToTurn: (turn) => {
@@ -414,12 +428,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     const targetTurn = Math.max(0, s.statData._turnCount - 1);
     const restored = rollbackTo(targetTurn);
     const newStat = restored ?? s.statData;
+    const newGame = { ...s.game, turnCount: newStat._turnCount };
     set({
       messages: newMsgs,
       statData: newStat,
-      game: { ...s.game, turnCount: newStat._turnCount },
+      game: newGame,
     });
-    if (s.game.gameStarted) saveToActiveSlot(s.game, newMsgs, newStat);
+    if (s.game.gameStarted) saveToActiveSlot(newGame, newMsgs, newStat);
     return true;
   },
 
@@ -439,12 +454,17 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       game: data.game,
       messages: data.messages,
       activeSlotId: id,
+      // Reset về chat — save khác path có thể không có view đang mở (vd studio)
+      activeView: 'chat',
     };
     if (data.statData) {
-      try {
-        updates.statData = StatDataSchema.parse(data.statData);
-      } catch {
-        updates.statData = StatDataSchema.parse({});
+      const parsed = StatDataSchema.safeParse(data.statData);
+      if (parsed.success) {
+        updates.statData = parsed.data;
+      } else {
+        // KHÔNG reset trắng — giữ dữ liệu thô còn hơn mất cả thế giới.
+        console.warn('[Save] statData không đạt schema — giữ nguyên dữ liệu thô:', parsed.error);
+        updates.statData = data.statData as StatData;
       }
     }
     setActiveSlotId(id);

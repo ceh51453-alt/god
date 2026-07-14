@@ -10,7 +10,8 @@ import {
   useLorebookStore, LOGIC,
   type LoreEntry,
 } from '@/stores/lorebookStore';
-import { useConnectionStore } from '@/stores/connectionStore';
+import { useConnectionStore, type ConnectionProfile } from '@/stores/connectionStore';
+import { buildChatUrl, buildHeaders, buildSimpleBody, extractResponseText } from '@/engine/api/apiClient';
 import { useChatStore } from '@/stores/chatStore';
 import { renderStateForAI } from '@/engine/mvu/stateRenderer';
 import type { MvuPatchOp } from '@/engine/mvu/patchEngine';
@@ -214,36 +215,11 @@ export function commitLorebook(activeUids: number[], delayedUids: number[], curr
    BẢO TRÌ BẰNG AI (cuối lượt): tạo / bổ sung / xóa entries
    ═══════════════════════════════════════════════════════ */
 
-function getMaintConn(): { url: string; headers: Record<string, string>; model: string; provider: string } | null {
+function getMaintConn(): { url: string; headers: Record<string, string>; profile: ConnectionProfile } | null {
   const p = useConnectionStore.getState().getActiveProfile();
   if (!(p.baseUrl || p.proxyUrl) || !p.selectedModel) return null;
-  const base = p.baseUrl ? p.baseUrl.replace(/\/+$/, '') : '';
-  const key = p.apiKeys[p.currentKeyIndex] || '';
-  const effectiveKey = key || p.proxyPassword || '';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-  switch (p.provider) {
-    case 'anthropic':
-      headers['x-api-key'] = effectiveKey;
-      headers['anthropic-version'] = '2023-06-01';
-      headers['anthropic-dangerous-direct-browser-access'] = 'true';
-      break;
-    case 'google':
-      headers['x-goog-api-key'] = effectiveKey;
-      break;
-    default: // openai, custom
-      if (effectiveKey) headers['Authorization'] = `Bearer ${effectiveKey}`;
-      break;
-  }
-
-  if (p.proxyPassword) headers['X-Proxy-Password'] = p.proxyPassword;
-
-  let url = `${base}/chat/completions`;
-  if (p.proxyUrl) {
-    const proxy = p.proxyUrl.replace(/\/+$/, '');
-    url = base ? `${proxy}?target=${encodeURIComponent(url)}` : `${proxy}/chat/completions`;
-  }
-  return { url, headers, model: p.selectedModel, provider: p.provider };
+  // Dùng chung helper của apiClient — URL/headers/body đúng theo từng provider.
+  return { url: buildChatUrl(p, false), headers: buildHeaders(p), profile: p };
 }
 
 function buildMaintenancePrompt(
@@ -379,7 +355,8 @@ function applyLoreOps(ops: LoreOp[]): { created: number; updated: number; delete
 /** Gọi AI cuối lượt để bảo trì Sổ Tri Thức. */
 export async function runLorebookMaintenance(recentText: string): Promise<{ created: number; updated: number; deleted: number } | null> {
   const st = useLorebookStore.getState();
-  if (!st.settings.autoUpdate) return null;
+  // Gate cả enabled: lorebook đang TẮT thì không chạy bảo trì nền.
+  if (!st.settings.enabled || !st.settings.autoUpdate) return null;
   const conn = getMaintConn();
   if (!conn) { st.setStatus('error', 'Chưa cấu hình kết nối AI'); return null; }
   if (!recentText.trim()) return null;
@@ -392,43 +369,7 @@ export async function runLorebookMaintenance(recentText: string): Promise<{ crea
     const prompt = buildMaintenancePrompt(recentText, st.entries, stateBlock, livingWorld);
     const systemContent = 'Bạn là Người Giữ Chính Sử của game. Chỉ trả về MỘT object JSON thuần {lore, world}.';
 
-    // Build body matching provider format (same as apiClient.ts)
-    let body: Record<string, unknown>;
-    switch (conn.provider) {
-      case 'anthropic':
-        body = {
-          model: conn.model,
-          system: systemContent,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1500,
-          temperature: 0.4,
-          stream: false,
-        };
-        break;
-      case 'google':
-        body = {
-          contents: [
-            { role: 'user', parts: [{ text: systemContent + '\n\n' + prompt }] },
-          ],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 1500,
-          },
-        };
-        break;
-      default: // openai, custom
-        body = {
-          model: conn.model,
-          messages: [
-            { role: 'system', content: systemContent },
-            { role: 'user', content: prompt },
-          ],
-          max_tokens: 1500,
-          temperature: 0.4,
-          stream: false,
-        };
-        break;
-    }
+    const body = buildSimpleBody(conn.profile, systemContent, prompt, { maxTokens: 1500, temperature: 0.4 });
 
     const response = await fetch(conn.url, {
       method: 'POST',
@@ -439,19 +380,7 @@ export async function runLorebookMaintenance(recentText: string): Promise<{ crea
     if (!response.ok) throw new Error(`API ${response.status}`);
     const data = await response.json();
 
-    // Extract text from provider-specific response format
-    let text = '';
-    switch (conn.provider) {
-      case 'anthropic':
-        text = data.content?.[0]?.text ?? '';
-        break;
-      case 'google':
-        text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-        break;
-      default:
-        text = data.choices?.[0]?.message?.content ?? '';
-        break;
-    }
+    const text = extractResponseText(conn.profile.provider, data);
 
     const { lore, world } = parseMaintenance(text);
     const res = applyLoreOps(lore);

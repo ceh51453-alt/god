@@ -167,6 +167,18 @@ export const MORTAL_REPUTATIONS = [
   { id: 'mysterious', name: 'Bí Ẩn Mạc Trắc', description: 'Không ai biết rõ ngươi, nhưng đều cảm thấy bất an' },
 ];
 
+/* ── Mortal classes (dùng chung cho OriginStep + map id→tên khi hoàn tất) ── */
+
+export const MORTAL_CLASSES = [
+  { id: 'noble', name: 'Thế Gia Vọng Tộc', desc: 'Dòng dõi quý tộc, nhiều nguồn lực nhưng nhiều ràng buộc' },
+  { id: 'merchant', name: 'Thương Nhân Phú Hào', desc: 'Giàu có nhưng bị khinh thường bởi giai cấp trên' },
+  { id: 'peasant', name: 'Bạch Đinh Bần Nông', desc: 'Không có gì ngoài ý chí kiên cường' },
+  { id: 'soldier', name: 'Quân Hộ Chiến Binh', desc: 'Lớn lên trong quân ngũ, thành thạo chiến đấu' },
+  { id: 'scholar', name: 'Hàn Sĩ Thư Sinh', desc: 'Bác học đa tài nhưng nghèo túng' },
+  { id: 'outlaw', name: 'Lưu Dân Giang Hồ', desc: 'Sống ngoài vòng pháp luật, tự do nhưng nguy hiểm' },
+  { id: 'custom', name: 'Tự Định Nghĩa', desc: 'Nhập xuất thân theo ý ngươi' },
+];
+
 /* ── Crises ── */
 
 export const CREATOR_DOMAINS = [

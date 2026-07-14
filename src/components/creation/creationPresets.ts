@@ -30,7 +30,7 @@ export const CREATOR_PRESETS: CharacterPreset[] = [
     data: {
       name: 'Đấng Kiến Tạo',
       title: 'Kiến Trúc Sư Của Vạn Vật',
-      cosmicDomain: 'word',
+      cosmicDomain: 'order',
       attributes: { creation: 80, destruction: 0, wisdom: 90, empathy: 10, chaos: -50, order: 100 },
       traits: ['perfectionist', 'infinite_patience'],
       reputation: 'whispered',

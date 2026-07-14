@@ -171,6 +171,20 @@ export const ChatPanel: React.FC = () => {
           scrollToBottom();
         },
         onDone: (full, thinkingText) => {
+          // ── Model chỉ trả về suy nghĩ, không có nội dung ──
+          // Thường do Max Tokens quá nhỏ so với Thinking Budget nên phần suy nghĩ
+          // ngốn hết hạn ngạch. Báo rõ thay vì để tin nhắn trống.
+          if (!full.trim()) {
+            const hint = thinkingText.trim()
+              ? '⚠️ Model chỉ suy nghĩ mà chưa viết nội dung — hãy tăng **Max Tokens** (Tham Số) cho lớn hơn Thinking Budget, hoặc giảm Thinking Budget, rồi thử lại.'
+              : '⚠️ Model không trả về nội dung. Kiểm tra lại kết nối / model / Max Tokens rồi thử lại.';
+            updateLastAssistantMessage(hint, thinkingText || undefined);
+            setStreaming(false);
+            setRetrying(null);
+            scrollToBottom();
+            return;
+          }
+
           // ── Apply Preset Regexes to AI response ──
           const regexed = applyPresetRegexes(full);
 

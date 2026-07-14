@@ -172,6 +172,14 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
     case 'google': {
       const systemMsg = messages.find(m => m.role === 'system');
       const chatMsgs = messages.filter(m => m.role !== 'system');
+      // Gemini tính token suy nghĩ VÀO maxOutputTokens. Nếu để nguyên max_tokens
+      // (vd 2048) mà thinkingBudget lớn hơn (vd 10000) thì phần suy nghĩ ngốn hết
+      // hạn ngạch → model dừng ở finishReason=MAX_TOKENS trước khi kịp viết câu
+      // trả lời (triệu chứng: "cứ suy nghĩ mà không nhả nội dung"). Phải cộng thêm
+      // budget để chừa chỗ cho phần trả lời.
+      const maxOut = sampling.thinking && sampling.max_tokens <= sampling.thinkingBudget
+        ? sampling.thinkingBudget + sampling.max_tokens
+        : sampling.max_tokens;
       const body: Record<string, unknown> = {
         ...(systemMsg && { systemInstruction: { parts: [{ text: systemMsg.content }] } }),
         contents: chatMsgs.map(m => ({
@@ -182,23 +190,30 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
           temperature: sampling.temperature,
           topP: sampling.top_p,
           topK: sampling.top_k || undefined,
-          maxOutputTokens: sampling.max_tokens,
+          maxOutputTokens: maxOut,
           frequencyPenalty: sampling.frequency_penalty,
           presencePenalty: sampling.presence_penalty,
           ...(sampling.stop_sequences.length > 0 && { stopSequences: sampling.stop_sequences }),
-          ...(sampling.thinking && { thinkingConfig: { thinkingBudget: sampling.thinkingBudget } }),
+          // includeThoughts: true → Gemini mới trả về phần tóm tắt suy nghĩ để hiển thị.
+          ...(sampling.thinking && { thinkingConfig: { thinkingBudget: sampling.thinkingBudget, includeThoughts: true } }),
         },
       };
       return body;
     }
 
     default: { // openai, custom
+      // Với model reasoning (o1/o3, deepseek-r1, Gemini qua proxy OpenAI-compat...),
+      // token suy nghĩ cũng bị tính vào max_tokens. max_tokens quá nhỏ so với
+      // thinkingBudget → suy nghĩ ngốn hết, không còn chỗ viết câu trả lời. Nới thêm.
+      const maxTok = sampling.thinking && sampling.max_tokens <= sampling.thinkingBudget
+        ? sampling.thinkingBudget + sampling.max_tokens
+        : sampling.max_tokens;
       const body: Record<string, unknown> = {
         model: profile.selectedModel || 'gpt-4o-mini',
         messages,
         temperature: sampling.temperature,
         top_p: sampling.top_p,
-        max_tokens: sampling.max_tokens,
+        max_tokens: maxTok,
         frequency_penalty: sampling.frequency_penalty,
         presence_penalty: sampling.presence_penalty,
         stream: sampling.streaming,
@@ -222,6 +237,7 @@ async function parseSSEStream(
   onChunk: (text: string) => void,
   signal?: AbortSignal,
   onThinkingChunk?: (text: string) => void,
+  onActivity?: () => void,
 ): Promise<{ fullText: string; thinkingText: string }> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error('No response body');
@@ -243,6 +259,8 @@ async function parseSSEStream(
 
       const { done, value } = await reader.read();
       if (done) break;
+
+      onActivity?.(); // reset watchdog: có dữ liệu mới đổ về
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
@@ -456,11 +474,24 @@ export async function sendChat(
 
       // Streaming response
       if (profile.sampling.streaming && response.headers.get('content-type')?.includes('text/event-stream')) {
-        const { fullText, thinkingText } = await parseSSEStream(response, profile.provider, (chunk) => {
-          options.onChunk?.(chunk);
-        }, options.signal, options.onThinkingChunk);
-        options.onDone?.(fullText, thinkingText);
-        return fullText;
+        // Watchdog: fetch timeout đã bị clear ở trên, nên nếu proxy giữ kết nối
+        // treo (không đổ dữ liệu) thì stream sẽ chờ mãi. Abort nếu im lặng quá lâu.
+        // Nới rộng hơn timeoutMs vì model reasoning có thể "suy nghĩ" âm thầm khá lâu.
+        const idleLimit = Math.max(profile.timeoutMs, 60000);
+        let idleTimer = setTimeout(() => controller.abort(), idleLimit);
+        const resetIdle = () => {
+          clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => controller.abort(), idleLimit);
+        };
+        try {
+          const { fullText, thinkingText } = await parseSSEStream(response, profile.provider, (chunk) => {
+            options.onChunk?.(chunk);
+          }, options.signal, options.onThinkingChunk, resetIdle);
+          options.onDone?.(fullText, thinkingText);
+          return fullText;
+        } finally {
+          clearTimeout(idleTimer);
+        }
       }
 
       // Non-streaming response

@@ -170,9 +170,12 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
     }
 
     case 'google': {
+      const systemMsg = messages.find(m => m.role === 'system');
+      const chatMsgs = messages.filter(m => m.role !== 'system');
       const body: Record<string, unknown> = {
-        contents: messages.map(m => ({
-          role: m.role === 'assistant' ? 'model' : m.role === 'system' ? 'user' : m.role,
+        ...(systemMsg && { systemInstruction: { parts: [{ text: systemMsg.content }] } }),
+        contents: chatMsgs.map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: m.content }],
         })),
         generationConfig: {
@@ -180,6 +183,8 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
           topP: sampling.top_p,
           topK: sampling.top_k || undefined,
           maxOutputTokens: sampling.max_tokens,
+          frequencyPenalty: sampling.frequency_penalty,
+          presencePenalty: sampling.presence_penalty,
           ...(sampling.stop_sequences.length > 0 && { stopSequences: sampling.stop_sequences }),
           ...(sampling.thinking && { thinkingConfig: { thinkingBudget: sampling.thinkingBudget } }),
         },

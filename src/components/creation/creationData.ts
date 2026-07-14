@@ -65,7 +65,7 @@ export const defaultCharacter: CharacterData = {
   traits: [],
   customTraits: '',
   reputation: '',
-  crisis: '',
+  crisis: 'none',
   followerName: '',
   followerDesc: '',
   followerAttributes: {},
@@ -179,6 +179,7 @@ export const CREATOR_DOMAINS = [
 ];
 
 export const CREATOR_CRISES = [
+  { id: 'none', name: 'Bình Yên Khởi Nguyên', description: 'Mọi thứ diễn ra suôn sẻ theo đúng ý định của ngươi, không có thế lực nào cản bước.' },
   { id: 'void_hunger', name: 'Hư Vô Đói Khát', description: 'Hư vô nguyên thuỷ đang nuốt chửng mọi thứ ngươi tạo ra, ngươi phải tìm cách ổn định sáng tạo đầu tiên.' },
   { id: 'first_rebellion', name: 'Tạo Vật Nổi Loạn', description: 'Tạo vật đầu tiên của ngươi bắt đầu thách thức quyền năng sáng tạo, đòi tự do riêng.' },
   { id: 'cosmic_flaw', name: 'Lỗi Trong Quy Luật', description: 'Quy luật vũ trụ ngươi thiết lập có một lỗ hổng nghiêm trọng, đe dọa toàn bộ sáng tạo.' },
@@ -189,6 +190,7 @@ export const CREATOR_CRISES = [
 ];
 
 export const GOD_CRISES = [
+  { id: 'none', name: 'Bình Yên Thần Giới', description: 'Tín đồ ngoan đạo, thần vị vững chắc, chưa có sóng gió nào xảy ra.' },
   { id: 'temple_destroyed', name: 'Đền Thờ Bị Phá Huỷ', description: 'Đền thờ lớn nhất bị kẻ thù tàn phá, tín đồ hoang mang dao động.' },
   { id: 'rival_god', name: 'Thần Thù Trỗi Dậy', description: 'Một vị thần đối thủ đang lôi kéo tín đồ của ngươi và thách thức quyền năng.' },
   { id: 'faith_crisis', name: 'Tín Ngưỡng Suy Thoái', description: 'Phàm nhân bắt đầu nghi ngờ sự tồn tại của thần linh, lòng sùng kính sụt giảm.' },
@@ -198,6 +200,7 @@ export const GOD_CRISES = [
 ];
 
 export const MORTAL_CRISES = [
+  { id: 'none', name: 'Bình Yên Cuộc Sống', description: 'Một cuộc đời bình dị, chưa gặp phải biến cố lớn.' },
   { id: 'war', name: 'Chiến Loạn Bùng Nổ', description: 'Chiến tranh tàn khốc, quê hương bị tàn phá, phải chạy nạn hoặc chiến đấu.' },
   { id: 'betrayal', name: 'Bị Phản Bội', description: 'Người thân cận nhất phản bội, mất hết tài sản và địa vị.' },
   { id: 'divine_mark', name: 'Bị Thần Linh Đánh Dấu', description: 'Một vị thần để mắt đến ngươi — may mắn hay tai họa, chưa ai biết.' },

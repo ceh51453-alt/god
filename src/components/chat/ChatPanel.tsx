@@ -3,7 +3,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useShallow } from 'zustand/react/shallow';
 import { sendChat } from '@/engine/api/apiClient';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { applyPresetRegexes } from '@/stores/presetStore';
+import { usePresetStore, applyPresetRegexes } from '@/stores/presetStore';
 import { getOpeningPrompt } from '@/engine/rag/ragEngine';
 import { buildPrompt, estimatePromptTokens } from '@/engine/prompt/promptBuilder';
 import { parseNarrativeTags } from '@/engine/narrative/tagParser';
@@ -196,10 +196,11 @@ export const ChatPanel: React.FC = () => {
         },
         onDone: (full, thinkingText) => {
           // ── Model chỉ trả về suy nghĩ, không có nội dung ──
-          // Thường do Max Tokens quá nhỏ so với Thinking Budget nên phần suy nghĩ
-          // ngốn hết hạn ngạch. Báo rõ thay vì để tin nhắn trống.
-          if (!full.trim()) {
-            const hint = thinkingText.trim()
+          // (Lưu ý: Native thinking có thể đã được nhúng vào fullText qua thẻ <think>)
+          const textWithoutThink = full.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+          if (!textWithoutThink) {
+            const hasThinking = thinkingText.trim() || full.match(/<think>[\s\S]*?<\/think>/i);
+            const hint = hasThinking
               ? '⚠️ Model chỉ suy nghĩ mà chưa viết nội dung — hãy tăng **Max Tokens** (Tham Số) cho lớn hơn Thinking Budget, hoặc giảm Thinking Budget, rồi thử lại.'
               : '⚠️ Model không trả về nội dung. Kiểm tra lại kết nối / model / Max Tokens rồi thử lại.';
             updateLastAssistantMessage(hint, thinkingText || undefined);
@@ -551,7 +552,7 @@ export const ChatPanel: React.FC = () => {
                 </span>
                 {msg.streaming && isStreaming ? (
                   <>
-                    {streamingThinkingText && (
+                    {!usePresetStore.getState().activePreset && streamingThinkingText && (
                       <ThinkingBlock
                         content={streamingThinkingText}
                         isStreaming={true}
@@ -565,7 +566,7 @@ export const ChatPanel: React.FC = () => {
                   </>
                 ) : segments ? (
                   <>
-                    {msg.thinkingText && (
+                    {!usePresetStore.getState().activePreset && msg.thinkingText && (
                       <ThinkingBlock
                         content={msg.thinkingText}
                         isStreaming={false}
@@ -576,7 +577,7 @@ export const ChatPanel: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    {msg.thinkingText && (
+                    {!usePresetStore.getState().activePreset && msg.thinkingText && (
                       <ThinkingBlock
                         content={msg.thinkingText}
                         isStreaming={false}

@@ -360,6 +360,7 @@ async function parseSSEStream(
   let buffer = '';
   let fullText = '';
   let thinkingText = '';
+  let insideNativeThinking = false;
   // Track current Anthropic content block type
   let currentBlockType: 'text' | 'thinking' | null = null;
   // Lý do model dừng — để chẩn đoán "chỉ thinking không có nội dung" (MAX_TOKENS...)
@@ -446,11 +447,28 @@ async function parseSSEStream(
           }
 
           if (thinkingChunk) {
-            thinkingText += thinkingChunk;
-            onThinkingChunk?.(thinkingChunk);
+            if (usePresetStore.getState().activePreset) {
+              if (!insideNativeThinking) {
+                const prefix = '<think>\n';
+                fullText += prefix;
+                onChunk(prefix);
+                insideNativeThinking = true;
+              }
+              fullText += thinkingChunk;
+              onChunk(thinkingChunk);
+            } else {
+              thinkingText += thinkingChunk;
+              onThinkingChunk?.(thinkingChunk);
+            }
           }
           if (chunk) {
             if (usePresetStore.getState().activePreset) {
+              if (insideNativeThinking) {
+                const suffix = '\n</think>\n\n';
+                fullText += suffix;
+                onChunk(suffix);
+                insideNativeThinking = false;
+              }
               fullText += chunk;
               onChunk(chunk);
             } else {
@@ -470,7 +488,11 @@ async function parseSSEStream(
     }
   } finally {
     if (usePresetStore.getState().activePreset) {
-      // Do not flush thinkParser if preset is active
+      if (insideNativeThinking) {
+        const suffix = '\n</think>\n\n';
+        fullText += suffix;
+        onChunk(suffix);
+      }
     } else {
       thinkParser.flush((text) => {
         fullText += text;
@@ -694,8 +716,14 @@ export async function sendChat(
 
       // ────────────────────────────────────────────────────────
       // Trích xuất thẻ <think> từ nội dung text (do Preset sinh ra)
+      // hoặc chuyển native thinking thành <think> nếu có Preset
       // ────────────────────────────────────────────────────────
-      if (!usePresetStore.getState().activePreset) {
+      if (usePresetStore.getState().activePreset) {
+        if (thinkingText) {
+          text = `<think>\n${thinkingText}\n</think>\n\n${text}`;
+          thinkingText = '';
+        }
+      } else {
         const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/i);
         if (thinkMatch) {
           // Nối thêm vào thinkingText nếu đã có sẵn từ native API

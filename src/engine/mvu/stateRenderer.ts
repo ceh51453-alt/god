@@ -46,10 +46,10 @@ export function renderStateForAI(state: StatData, ladder?: LadderOverride | null
   }
 
   // ── Mechanics & Tier (LIVE) ──
-  const tier = deriveTier(state.path, res.progress, ladder?.tiers);
+  const tier = deriveTier(state.path, res.progress, ladder?.tiers, state.world.mortalClass);
   const mechLines: string[] = [];
   mechLines.push(
-    `${progressionLabel(state.path, ladder?.label)}: ${tier.name} — ${tier.desc}`,
+    `${progressionLabel(state.path, ladder?.label, state.world.mortalClass)}: ${tier.name} — ${tier.desc}`,
     tier.next != null
       ? `Tiến Trình: ${res.progress}/${tier.next} (${tier.pct}% tới "${tier.nextName}")`
       : `Tiến Trình: ${res.progress} (đã đạt đỉnh cao nhất)`,
@@ -61,9 +61,15 @@ export function renderStateForAI(state: StatData, ladder?: LadderOverride | null
 
   // ── Thời gian in-world (LIVE) ──
   const timeStr = formatWorldTime(state.world.time);
+  const tLines = [];
   if (timeStr) {
-    const tLines = [timeStr];
+    tLines.push(timeStr);
     if (state.world.time.cycleRule) tLines.push(`Chu kỳ: ${state.world.time.cycleRule}`);
+  }
+  if (state.world.calendar) {
+    tLines.push(`Ngày ${state.world.calendar.day} Tháng ${state.world.calendar.month} Năm ${state.world.calendar.year}`);
+  }
+  if (tLines.length > 0) {
     sections.push(`\nThời gian:\n  ${tLines.join('\n  ')}`);
   }
 
@@ -76,10 +82,61 @@ export function renderStateForAI(state: StatData, ladder?: LadderOverride | null
   if (w.cosmicDomain) worldLines.push(`Miền sáng tạo: ${w.cosmicDomain}`);
   if (w.divineRealm) worldLines.push(`Miền quyền năng: ${w.divineRealm}`);
   if (w.reputation) worldLines.push(`Danh tiếng: ${w.reputation}`);
-  if (w.crisis) worldLines.push(`Khủng hoảng: ${w.crisis}`);
   if (w.pantheonName) worldLines.push(`Thần hệ: ${w.pantheonName}`);
+  if (w.activeEvents && w.activeEvents.length > 0) {
+    const evLines = w.activeEvents.map(ev => 
+      `    - [${ev.urgency}%] ${ev.name} (${ev.status})`
+    ).join('\n');
+    worldLines.push(`Sự kiện thế giới:\n${evLines}`);
+  }
   if (worldLines.length > 0) {
     sections.push(`\nThế giới:\n  ${worldLines.join('\n  ')}`);
+  }
+
+  // ── Domains & Armies ──
+  const domEntries = Object.entries(state.domains || {});
+  if (domEntries.length > 0) {
+    const dLines = domEntries.map(([id, d]) => {
+      let base = `  [${id}] ${d.name} (${d.type} - ${d.size}) | Phồn vinh: ${d.prosperity} | An ninh: ${d.security} | Dân số: ${d.population} | Lòng dân: ${d.loyalty}`;
+      base += `\n    Tài nguyên: Vàng ${d.resources.gold}, Lương thực ${d.resources.food}, Gỗ ${d.resources.wood}, Đá ${d.resources.stone}`;
+      const bEntries = Object.entries(d.buildings || {});
+      if (bEntries.length > 0) {
+        const bStrs = bEntries.map(([bId, b]) => `${b.name} (Lv.${b.level}${b.isConstructing ? `, đang xây ${b.turnsLeft} turn` : ''})`);
+        base += `\n    Công trình: ${bStrs.join(', ')}`;
+      }
+      const eEntries = Object.entries(d.edicts || {});
+      if (eEntries.length > 0) {
+        const eStrs = eEntries.map(([eId, e]) => `${e.title} (${e.status === 'active' ? 'Đang thi hành' : e.status === 'suspended' ? 'Tạm hoãn' : 'Bãi bỏ'})`);
+        base += `\n    Pháp lệnh: ${eStrs.join(', ')}`;
+      }
+      return base;
+    }).join('\n');
+    sections.push(`\nLãnh địa / Cứ điểm (dùng [id] cập nhật):\n${dLines}`);
+  }
+
+  const armEntries = Object.entries(state.armies || {});
+  if (armEntries.length > 0) {
+    const aLines = armEntries.map(([id, a]) => 
+      `  [${id}] ${a.name} (${a.type}) | Quân số: ${a.size} | Sĩ khí: ${a.morale} | Kỷ luật: ${a.discipline || 50} | Trang bị (Lv.${a.equipmentLevel || 1}) | Trạng thái: ${a.status}`
+    ).join('\n');
+    sections.push(`\nLực lượng quân đội (dùng [id] cập nhật):\n${aLines}`);
+  }
+
+  // ── Diplomacy & Council ──
+  const dipEntries = Object.entries(state.diplomacy || {});
+  if (dipEntries.length > 0) {
+    const dipLines = dipEntries.map(([id, d]) => 
+      `  [${id}] Trạng thái: ${d.status} | War Score: ${d.warScore}`
+    ).join('\n');
+    sections.push(`\nNgoại giao (với các thế lực khác):\n${dipLines}`);
+  }
+
+  const councilEntries = Object.entries(state.council || {});
+  if (councilEntries.length > 0) {
+    const councilLines = councilEntries.map(([id, c]) => 
+      `  [${id}] ${c.title}: ${c.holderId ? c.holderId : 'Khuyết'} (Năng lực: ${c.competence})`
+    ).join('\n');
+    sections.push(`\nTiểu Hội Đồng / Bộ máy quản lý:\n${councilLines}`);
   }
 
   // ── Traits ──
@@ -122,7 +179,8 @@ export function renderStateForAI(state: StatData, ladder?: LadderOverride | null
     const qLines = activeQuests.map(([id, q]) => {
       const done = q.objectives.filter(o => o.done).length;
       const total = q.objectives.length;
-      return `  ${q.title} [${done}/${total}] (${q.type})`;
+      const rankStr = q.rank ? ` [Hạng ${q.rank}]` : '';
+      return `  ${q.title}${rankStr} [${done}/${total}] (${q.type})`;
     }).join('\n');
     sections.push(`\nNhiệm vụ đang làm:\n${qLines}`);
   }
@@ -143,15 +201,40 @@ export function renderStateForAI(state: StatData, ladder?: LadderOverride | null
 
 function renderNpcCompact(id: string, npc: NpcData): string {
   const stage = deriveAffinityStage(npc.affinity);
-  const status = npc.alive ? '' : ' [Đã Chết]';
+  const status = npc.alive ? '' : ` [Đã Chết${npc.causeOfDeath ? `: ${npc.causeOfDeath}` : ''}]`;
   const role = npc.role ? ` — ${npc.role}` : '';
   const aka = npc.aliases && npc.aliases.length ? ` (aka: ${npc.aliases.join(', ')})` : '';
-  const lines = [`  [${id}] ${npc.name}${role}: ${stage} (${npc.affinity})${status}${aka}`];
+  const relTypes = npc.relationshipTypes && npc.relationshipTypes.length ? ` [${npc.relationshipTypes.join(', ')}]` : '';
+  
+  const lines = [`  [${id}] ${npc.name}${role}${relTypes}: Hảo Cảm ${stage} (${npc.affinity}) | Tin Cậy (${npc.trust || 0})${status}${aka}`];
+  
+  if (npc.evaluation) lines.push(`      đánh giá: ${npc.evaluation}`);
   if (npc.agenda) lines.push(`      mưu cầu: ${npc.agenda}`);
+  
+  // Hiển thị tính cách rút gọn (ví dụ: Thiện(+10), Dũng(+20))
+  if (npc.personalityAxes) {
+    const p = npc.personalityAxes;
+    const traits = [];
+    if (p.goodEvil !== 0) traits.push(p.goodEvil > 0 ? `Thiện(+${p.goodEvil})` : `Ác(${p.goodEvil})`);
+    if (p.braveCoward !== 0) traits.push(p.braveCoward > 0 ? `Dũng(+${p.braveCoward})` : `Hèn(${p.braveCoward})`);
+    if (p.loyalTreacherous !== 0) traits.push(p.loyalTreacherous > 0 ? `Trung(+${p.loyalTreacherous})` : `Phản(${p.loyalTreacherous})`);
+    if (p.calmHot !== 0) traits.push(p.calmHot > 0 ? `Điềm Tĩnh(+${p.calmHot})` : `Nóng nảy(${p.calmHot})`);
+    if (npc.personalityTraits?.length) traits.push(...npc.personalityTraits);
+    
+    if (traits.length > 0) lines.push(`      tính cách: ${traits.join(', ')}`);
+  }
+
   // Ranh giới tri thức: NPC chỉ được hành xử theo những gì liệt kê ở đây.
   if (npc.knows && npc.knows.length) lines.push(`      biết: ${npc.knows.slice(0, 4).join('; ')}`);
-  if (npc.memories && npc.memories.length) lines.push(`      nhớ: ${npc.memories.slice(0, 3).join('; ')}`);
-  if (npc.promises && npc.promises.length) lines.push(`      hứa: ${npc.promises.slice(0, 3).join('; ')}`);
+  
+  // Trí nhớ
+  if (npc.memories && npc.memories.length) {
+    const mems = npc.memories.slice(0, 3).map(m => `(T${m.turn}) ${m.event} [${m.emotion}]`);
+    lines.push(`      nhớ: ${mems.join('; ')}`);
+  }
+  
+  if (npc.unkeptPromises && npc.unkeptPromises.length) lines.push(`      hứa chưa giữ: ${npc.unkeptPromises.slice(0, 3).join('; ')}`);
+  
   return lines.join('\n');
 }
 

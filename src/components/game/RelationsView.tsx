@@ -25,6 +25,9 @@ export const RelationsView: React.FC = () => {
   const entityEntries = Object.entries(statData.entities || {});
   // Quests from MVU
   const questEntries = Object.entries(statData.quests || {});
+  // Macro systems
+  const diplomacyEntries = Object.entries(statData.diplomacy || {});
+  const councilEntries = Object.entries(statData.council || {});
 
   const activeQuests = questEntries.filter(([, q]) => q.status === 'active' || q.status === 'pending');
   const completedQuests = questEntries.filter(([, q]) => q.status === 'completed' || q.status === 'failed');
@@ -77,6 +80,52 @@ export const RelationsView: React.FC = () => {
         )}
       </div>
 
+      {/* Diplomacy */}
+      {diplomacyEntries.length > 0 && (
+        <div className="gv-section">
+          <h4 className="gv-section-title">Ngoại Giao</h4>
+          <div className="rv-diplomacy-grid">
+            {diplomacyEntries.map(([key, d]) => (
+              <div key={key} className="rv-diplomacy-card">
+                <div className="rv-dip-header">
+                  <span className="rv-dip-target">{key}</span>
+                  <span className={`rv-dip-status status-${d.status}`}>{d.status}</span>
+                </div>
+                <div className="rv-dip-score">
+                  <span>War Score:</span>
+                  <strong style={{ color: d.warScore > 0 ? '#6aaa72' : d.warScore < 0 ? '#a0555a' : '#c9a84c' }}>
+                    {d.warScore > 0 ? '+' : ''}{d.warScore}
+                  </strong>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Council */}
+      {councilEntries.length > 0 && (
+        <div className="gv-section">
+          <h4 className="gv-section-title">Tiểu Hội Đồng</h4>
+          <div className="rv-council-grid">
+            {councilEntries.map(([key, c]) => {
+              const holder = c.holderId ? (statData.npcs?.[c.holderId]?.name || c.holderId) : 'Khuyết';
+              return (
+                <div key={key} className="rv-council-card">
+                  <span className="rv-council-title">{c.title}</span>
+                  <div className="rv-council-holder">
+                    <span className="rv-council-name" style={{ color: c.holderId ? 'inherit' : 'var(--text-muted)' }}>
+                      {holder}
+                    </span>
+                    <span className="rv-council-comp" title="Năng Lực">NL: {c.competence}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* NPCs */}
       {npcEntries.length > 0 && (
         <div className="gv-section">
@@ -93,34 +142,63 @@ export const RelationsView: React.FC = () => {
                     </div>
                     <div className="rv-npc-identity">
                       <span className="rv-npc-name">{npc.name || key}</span>
-                      {npc.title && <span className="rv-npc-title">{npc.title}</span>}
-                      {npc.role && <span className="rv-npc-role">{npc.role}</span>}
+                      <div className="rv-npc-titles">
+                        {npc.title && <span className="rv-npc-title">{npc.title}</span>}
+                        {npc.role && <span className="rv-npc-role">{npc.role}</span>}
+                      </div>
+                      {npc.relationshipTypes && npc.relationshipTypes.length > 0 && (
+                        <div className="rv-npc-reltypes">
+                          {npc.relationshipTypes.map(rt => <span key={rt} className="rv-badge">{rt}</span>)}
+                        </div>
+                      )}
                     </div>
-                    {!npc.alive && <span className="rv-npc-dead">Đã Mất</span>}
+                    {!npc.alive && <span className="rv-npc-dead" title={npc.causeOfDeath}>Đã Mất</span>}
                   </div>
 
-                  {/* Affinity bar */}
-                  <div className="rv-affinity">
-                    <div className="rv-affinity-header">
-                      <span className="rv-affinity-stage" style={{ color: affColor }}>{stage}</span>
-                      <span className="rv-affinity-value" style={{ color: affColor }}>
-                        {npc.affinity > 0 ? '+' : ''}{npc.affinity}
-                      </span>
+                  {/* Affinity & Trust bars */}
+                  <div className="rv-bars-group">
+                    <div className="rv-affinity">
+                      <div className="rv-affinity-header">
+                        <span className="rv-affinity-stage" style={{ color: affColor }}>Hảo Cảm: {stage}</span>
+                        <span className="rv-affinity-value" style={{ color: affColor }}>
+                          {npc.affinity > 0 ? '+' : ''}{npc.affinity}
+                        </span>
+                      </div>
+                      <div className="rv-affinity-bar">
+                        <div className="rv-affinity-center" />
+                        <div
+                          className="rv-affinity-fill"
+                          style={{
+                            width: `${Math.abs(npc.affinity) / 2}%`,
+                            left: npc.affinity >= 0 ? '50%' : `${50 - Math.abs(npc.affinity) / 2}%`,
+                            background: affColor,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="rv-affinity-bar">
-                      <div className="rv-affinity-center" />
-                      <div
-                        className="rv-affinity-fill"
-                        style={{
-                          width: `${Math.abs(npc.affinity) / 2}%`,
-                          left: npc.affinity >= 0 ? '50%' : `${50 - Math.abs(npc.affinity) / 2}%`,
-                          background: affColor,
-                        }}
-                      />
+
+                    <div className="rv-affinity">
+                      <div className="rv-affinity-header">
+                        <span className="rv-affinity-stage" style={{ color: 'var(--text-secondary)' }}>Tin Cậy</span>
+                        <span className="rv-affinity-value" style={{ color: 'var(--text-secondary)' }}>
+                          {npc.trust > 0 ? '+' : ''}{npc.trust || 0}
+                        </span>
+                      </div>
+                      <div className="rv-affinity-bar">
+                        <div className="rv-affinity-center" />
+                        <div
+                          className="rv-affinity-fill"
+                          style={{
+                            width: `${Math.abs(npc.trust || 0) / 2}%`,
+                            left: (npc.trust || 0) >= 0 ? '50%' : `${50 - Math.abs(npc.trust || 0) / 2}%`,
+                            background: 'var(--text-muted)',
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Loyalty */}
+                  {/* Loyalty (if applicable) */}
                   {npc.loyalty !== undefined && npc.loyalty !== 50 && (
                     <div className="rv-npc-loyalty">
                       <span className="rv-npc-loyalty-label">Trung Thành</span>
@@ -132,19 +210,31 @@ export const RelationsView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Personality */}
-                  {npc.personality && (
-                    <p className="rv-npc-personality">{npc.personality}</p>
+                  {/* Personality Axes */}
+                  {npc.personalityAxes && (
+                    <div className="rv-personality">
+                      <div className="rv-pers-row">
+                        <span className="rv-pers-label">{npc.personalityAxes.goodEvil >= 0 ? 'Thiện' : 'Ác'}</span>
+                        <div className="rv-pers-bar"><div className="rv-pers-fill" style={{ width: `${Math.min(100, Math.abs(npc.personalityAxes.goodEvil))}%`, background: npc.personalityAxes.goodEvil >= 0 ? '#6aaa72' : '#a0555a' }} /></div>
+                      </div>
+                      <div className="rv-pers-row">
+                        <span className="rv-pers-label">{npc.personalityAxes.braveCoward >= 0 ? 'Dũng' : 'Hèn'}</span>
+                        <div className="rv-pers-bar"><div className="rv-pers-fill" style={{ width: `${Math.min(100, Math.abs(npc.personalityAxes.braveCoward))}%`, background: npc.personalityAxes.braveCoward >= 0 ? '#4a8fa8' : '#c07050' }} /></div>
+                      </div>
+                    </div>
                   )}
 
-                  {/* Memories & Promises */}
-                  {(npc.memories?.length > 0 || npc.promises?.length > 0) && (
+                  {/* Notes: Memories, Promises, Knowledge */}
+                  {(npc.memories?.length > 0 || npc.unkeptPromises?.length > 0 || npc.knows?.length > 0) && (
                     <div className="rv-npc-notes">
-                      {npc.memories?.slice(0, 3).map((m, i) => (
-                        <span key={`m-${i}`} className="rv-npc-note rv-npc-note--memory">{m}</span>
+                      {npc.knows?.slice(0, 2).map((k, i) => (
+                        <span key={`k-${i}`} className="rv-npc-note rv-npc-note--know">Biết: {k}</span>
                       ))}
-                      {npc.promises?.slice(0, 2).map((p, i) => (
-                        <span key={`p-${i}`} className="rv-npc-note rv-npc-note--promise">{p}</span>
+                      {npc.memories?.slice(0, 2).map((m, i) => (
+                        <span key={`m-${i}`} className="rv-npc-note rv-npc-note--memory">{m.event} [{m.emotion}]</span>
+                      ))}
+                      {npc.unkeptPromises?.slice(0, 2).map((p, i) => (
+                        <span key={`p-${i}`} className="rv-npc-note rv-npc-note--promise">Nợ: {p}</span>
                       ))}
                     </div>
                   )}

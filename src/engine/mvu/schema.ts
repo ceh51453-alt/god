@@ -73,21 +73,47 @@ export type WorldTimeData = z.infer<typeof TimeSchema>;
 // ── NPC Schema ──
 
 export const NpcSchema = z.object({
+  // Định danh & Chân dung
   name: safeStr(200),
   title: safeStr(200),
+  aliases: z.array(safeStr(120)).default([]),
+  role: safeStr(200),
+  alive: z.boolean().default(true),
+  causeOfDeath: safeStr(200).optional(),
+  age: z.number().int().optional(),
+  lifeStage: z.enum(['Ấu Nhi', 'Thiếu Niên', 'Thanh Niên', 'Trưởng Thành', 'Trung Niên', 'Lão Niên']).default('Trưởng Thành'),
+
+  // Quan hệ
   affinity: cInt(-100, 100, 0),
   _affinityStage: AffinityStage.default('Trung Lập'),
+  trust: cInt(-100, 100, 0),
+  relationshipTypes: z.array(z.enum([
+    'Đồng Minh', 'Kẻ Thù', 'Bằng Hữu', 'Cấp Trên', 'Thuộc Hạ', 'Người Thân',
+    'Vợ/Chồng', 'Hôn Ước', 'Tình Nhân', 'Đối Thủ', 'Ân Nhân', 'Con Nợ', 'Thầy', 'Trò', 'Không Rõ'
+  ])).default([]),
+  evaluation: safeStr(300), // Lời đánh giá ngắn của AI về NPC này
   loyalty: cInt(-100, 100, 50),
-  alive: z.boolean().default(true),
-  role: safeStr(200),
-  personality: safeStr(300),
-  memories: z.array(safeStr(300)).default([]),
-  promises: z.array(safeStr(300)).default([]),
-  aliases: z.array(safeStr(120)).default([]),
-  /** Điều NPC này THỰC SỰ biết (chống toàn tri). Chỉ những gì đã chứng kiến/được kể. */
+
+  // Tính cách & Mục tiêu
+  personalityAxes: z.object({
+    goodEvil: cInt(-100, 100, 0),
+    braveCoward: cInt(-100, 100, 0),
+    loyalTreacherous: cInt(-100, 100, 0),
+    calmHot: cInt(-100, 100, 0),
+  }).default({ goodEvil: 0, braveCoward: 0, loyalTreacherous: 0, calmHot: 0 }),
+  personalityTraits: z.array(safeStr(100)).default([]), // Các nét tính cách (tag)
+  characterArc: safeStr(300).optional(),
+  agenda: safeStr(300), // Mưu cầu/Mục tiêu riêng
+
+  // Ký ức & Tri thức
+  memories: z.array(z.object({
+    turn: z.number().int(),
+    event: safeStr(300),
+    emotion: z.enum(['Biết Ơn', 'Oán Hận', 'Ngưỡng Mộ', 'Sợ Hãi', 'Khinh Thường', 'Yêu Mến', 'Ghen Tị', 'Trung Lập']).default('Trung Lập'),
+    weight: cInt(0, 100, 50),
+  })).default([]),
+  unkeptPromises: z.array(safeStr(300)).default([]),
   knows: z.array(safeStr(300)).default([]),
-  /** Mưu cầu/mục tiêu riêng — để NPC tự vận động dù người chơi vắng mặt. */
-  agenda: safeStr(300),
 });
 
 // ── Entity Schema ──
@@ -113,10 +139,84 @@ export const QuestObjectiveSchema = z.object({
 export const QuestSchema = z.object({
   title: safeStr(200),
   type: z.enum(['main', 'side', 'divine', 'political', 'personal']).default('side'),
+  rank: z.enum(['SSS', 'SS', 'S', 'A', 'B', 'C', 'D', 'E', 'F']).optional(),
   status: z.enum(['pending', 'active', 'completed', 'failed']).default('pending'),
   objectives: z.array(QuestObjectiveSchema).default([]),
   reward: safeStr(300),
   deadlineTurn: z.number().int().optional(),
+});
+
+// ── Domain Schema ──
+
+export const EdictSchema = z.object({
+  title: safeStr(200),
+  type: z.enum(['tax', 'military', 'trade', 'social', 'religious', 'other']).default('other'),
+  status: z.enum(['active', 'suspended', 'abolished']).default('active'),
+  description: safeStr(500),
+  effect: safeStr(300).optional(),
+});
+
+export const BuildingSchema = z.object({
+  name: safeStr(200),
+  type: z.enum(['castle', 'farm', 'market', 'barracks', 'wall', 'port', 'temple', 'academy', 'other']).default('other'),
+  level: cInt(1, 100, 1),
+  isConstructing: z.boolean().default(false),
+  turnsLeft: cInt(0, 100, 0),
+});
+
+export const DomainSchema = z.object({
+  name: safeStr(200),
+  type: z.enum(['city', 'fortress', 'temple', 'planet', 'region', 'cyberspace', 'other']).default('city'),
+  size: z.enum(['small', 'medium', 'large', 'massive']).default('medium'),
+  prosperity: cInt(0, 100, 50),
+  security: cInt(0, 100, 50),
+  population: cInt(0, 99999999, 1000),
+  loyalty: cInt(0, 100, 50),
+  resources: z.object({
+    gold: cInt(0, 999999, 0),
+    food: cInt(0, 999999, 0),
+    wood: cInt(0, 999999, 0),
+    stone: cInt(0, 999999, 0),
+  }).default(() => ({ gold: 0, food: 0, wood: 0, stone: 0 })),
+  buildings: z.record(z.string(), BuildingSchema).default({}),
+  edicts: z.record(z.string(), EdictSchema).default({}),
+  description: safeStr(500),
+});
+
+// ── Army Schema ──
+
+export const ArmySchema = z.object({
+  name: safeStr(200),
+  type: z.enum(['infantry', 'cavalry', 'fleet', 'airforce', 'demonic', 'robotic', 'other']).default('infantry'),
+  size: cInt(0, 9999999, 100),
+  morale: cInt(0, 100, 50),
+  discipline: cInt(0, 100, 50),
+  equipmentLevel: cInt(1, 10, 1),
+  commanderId: safeStr(200).optional(),
+  status: z.enum(['garrisoned', 'marching', 'fighting', 'routing', 'destroyed']).default('garrisoned'),
+  location: safeStr(200).optional(),
+});
+
+// ── World Event Schema ──
+
+export const WorldEventSchema = z.object({
+  name: safeStr(200),
+  urgency: cInt(0, 100, 50),
+  impact: safeStr(300),
+  status: z.enum(['ongoing', 'resolved', 'failed']).default('ongoing'),
+});
+
+// ── Diplomacy & Council ──
+
+export const DiplomacySchema = z.object({
+  status: z.enum(['peace', 'war', 'truce', 'alliance', 'vassal']).default('peace'),
+  warScore: cInt(-100, 100, 0),
+});
+
+export const CouncilPositionSchema = z.object({
+  title: safeStr(100),
+  holderId: safeStr(200).optional(), // NPC Id
+  competence: cInt(0, 100, 50),
 });
 
 // ── Core Stat Data Schema ──
@@ -151,6 +251,11 @@ export const StatDataSchema = z.object({
 
   // World State
   world: z.object({
+    calendar: z.object({
+      day: cInt(1, 30, 1),
+      month: cInt(1, 12, 1),
+      year: z.number().int().default(1),
+    }).default(() => ({ day: 1, month: 1, year: 1 })),
     era: safeStr(200),
     eraDescription: safeStr(500),
     region: safeStr(200),
@@ -160,17 +265,26 @@ export const StatDataSchema = z.object({
     mortalOrigin: safeStr(200),
     mortalClass: safeStr(200),
     reputation: safeStr(200),
-    crisis: safeStr(300),
+    activeEvents: z.array(WorldEventSchema).default([]),
     cosmicRules: safeStr(500),
     pantheonName: safeStr(200),
     appearance: safeStr(300),
     time: TimeSchema,
   }).default(() => ({
+    calendar: { day: 1, month: 1, year: 1 },
     era: '', eraDescription: '', region: '', faction: '',
     cosmicDomain: '', divineRealm: '', mortalOrigin: '', mortalClass: '',
-    reputation: '', crisis: '', cosmicRules: '', pantheonName: '', appearance: '',
+    reputation: '', activeEvents: [], cosmicRules: '', pantheonName: '', appearance: '',
     time: defaultTime(),
   })),
+
+  // Domains & Armies
+  domains: z.record(z.string(), DomainSchema).default({}),
+  armies: z.record(z.string(), ArmySchema).default({}),
+
+  // Diplomacy & Council
+  diplomacy: z.record(z.string(), DiplomacySchema).default({}),
+  council: z.record(z.string(), CouncilPositionSchema).default({}),
 
   // NPCs
   npcs: z.record(z.string(), NpcSchema).default({}),
@@ -225,11 +339,14 @@ export const StatDataSchema = z.object({
   abilities: {},
   resources: { power: 100, followers: 0, wealth: 0, faith: 0, karma: 0, progress: 0 },
   world: {
+    calendar: { day: 1, month: 1, year: 1 },
     era: '', eraDescription: '', region: '', faction: '',
     cosmicDomain: '', divineRealm: '', mortalOrigin: '', mortalClass: '',
-    reputation: '', crisis: '', cosmicRules: '', pantheonName: '', appearance: '',
+    reputation: '', activeEvents: [], cosmicRules: '', pantheonName: '', appearance: '',
     time: defaultTime(),
   },
+  domains: {}, armies: {},
+  diplomacy: {}, council: {},
   npcs: {}, entities: {}, quests: {},
   companion: { name: '', description: '', attributes: {} },
   timeline: [],

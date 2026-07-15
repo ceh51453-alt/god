@@ -8,8 +8,12 @@ import { getOpeningPrompt } from '@/engine/rag/ragEngine';
 import { buildPrompt, estimatePromptTokens } from '@/engine/prompt/promptBuilder';
 import { parseNarrativeTags } from '@/engine/narrative/tagParser';
 import { extractStudioCreations } from '@/engine/studio/studioSync';
+import { extractMortalCreations } from '@/engine/studio/mortalSync';
+import { extractGodCreations } from '@/engine/studio/godSync';
 import { sameName } from '@/engine/canon/entityRegistry';
 import { useStudioStore } from '@/components/studio/studioStore';
+import { useMortalStore } from '@/components/studio/mortalStore';
+import { useGodStore } from '@/components/studio/godStore';
 import { runEnrich } from '@/engine/studio/enrichEngine';
 import { useEnrichStore } from '@/stores/enrichStore';
 import { activateLorebook, commitLorebook, runLorebookMaintenance } from '@/engine/lorebook/lorebookEngine';
@@ -208,25 +212,67 @@ export const ChatPanel: React.FC = () => {
           // ── Apply Preset Regexes to AI response ──
           const regexed = applyPresetRegexes(full);
 
-          // ── Auto-ghi tạo vật vào Xưởng Sáng Thế (chỉ Sáng Thế Thần) ──
-          const { text: stripped, creations } = extractStudioCreations(regexed);
-          if (path === 'creator' && creations.length > 0) {
-            for (const c of creations) {
-              const studio = useStudioStore.getState();
-              const existing = studio.entities.find(
-                e => e.category === c.category && sameName(e.name, c.name)
-              );
-              if (existing) {
-                // Cập nhật: chỉ ghi đè trường AI cung cấp không rỗng
-                const merged = { ...existing.values };
-                for (const [k, v] of Object.entries(c.values)) {
-                  const emptyStr = typeof v === 'string' && v.trim() === '';
-                  const emptyArr = Array.isArray(v) && v.length === 0;
-                  if (!emptyStr && !emptyArr) merged[k] = v;
+          // ── Auto-ghi tạo vật vào Xưởng/Động Phủ/Thần Điện ──
+          let stripped = regexed;
+          
+          if (path === 'creator') {
+            const { text, creations } = extractStudioCreations(regexed);
+            stripped = text;
+            if (creations.length > 0) {
+              const store = useStudioStore.getState();
+              for (const c of creations) {
+                const existing = store.entities.find(e => e.category === c.category && sameName(e.name, c.name));
+                if (existing) {
+                  const merged = { ...existing.values };
+                  for (const [k, v] of Object.entries(c.values)) {
+                    if (typeof v === 'string' && !v.trim()) continue;
+                    if (Array.isArray(v) && v.length === 0) continue;
+                    merged[k] = v;
+                  }
+                  store.update(existing.id, { values: merged });
+                } else {
+                  store.add(c);
                 }
-                studio.update(existing.id, { values: merged });
-              } else {
-                studio.add(c);
+              }
+            }
+          } else if (path === 'god') {
+            const { text, entities } = extractGodCreations(regexed);
+            stripped = text;
+            if (entities.length > 0) {
+              const store = useGodStore.getState();
+              for (const c of entities) {
+                const existing = store.entities.find(e => e.category === c.category && sameName(e.name, c.name));
+                if (existing) {
+                  const merged = { ...existing.values };
+                  for (const [k, v] of Object.entries(c.values)) {
+                    if (typeof v === 'string' && !v.trim()) continue;
+                    if (Array.isArray(v) && v.length === 0) continue;
+                    merged[k] = v;
+                  }
+                  store.update(existing.id, { values: merged });
+                } else {
+                  store.add(c);
+                }
+              }
+            }
+          } else if (path === 'mortal') {
+            const { text, entities } = extractMortalCreations(regexed);
+            stripped = text;
+            if (entities.length > 0) {
+              const store = useMortalStore.getState();
+              for (const c of entities) {
+                const existing = store.entities.find(e => e.category === c.category && sameName(e.name, c.name));
+                if (existing) {
+                  const merged = { ...existing.values };
+                  for (const [k, v] of Object.entries(c.values)) {
+                    if (typeof v === 'string' && !v.trim()) continue;
+                    if (Array.isArray(v) && v.length === 0) continue;
+                    merged[k] = v;
+                  }
+                  store.update(existing.id, { values: merged });
+                } else {
+                  store.add(c);
+                }
               }
             }
           }

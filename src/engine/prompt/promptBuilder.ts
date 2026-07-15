@@ -14,6 +14,10 @@ import { staticRules } from '../mechanics/pathMechanics';
 import { getProgressionOverride } from '../canon/progression';
 import { summarizeStudioForAI } from '../studio/studioSync';
 import type { StudioEntity } from '@/components/studio/studioTypes';
+import { summarizeMortalForAI } from '../studio/mortalSync';
+import type { MortalEntity } from '@/components/studio/mortalTypes';
+import { summarizeGodForAI } from '../studio/godSync';
+import type { GodEntity } from '@/components/studio/godTypes';
 import { usePresetStore, applyPresetRegexes } from '@/stores/presetStore';
 import { activateLorebook } from '../lorebook/lorebookEngine';
 
@@ -35,6 +39,8 @@ interface PromptBuildOptions {
   userMessage: string;
   /** Studio creations to inject as world context (Creator path) */
   studioEntities?: StudioEntity[];
+  mortalEntities?: MortalEntity[];
+  godEntities?: GodEntity[];
   /** Approximate token budget (chars * 0.3 ≈ tokens) */
   maxContextChars?: number;
 }
@@ -52,7 +58,7 @@ interface PromptBuildOptions {
 export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
   const {
     statData, path, character, messages,
-    userMessage, studioEntities = [], maxContextChars = 30000,
+    userMessage, studioEntities = [], mortalEntities = [], godEntities = [], maxContextChars = 30000,
   } = options;
 
   const result: PromptMessage[] = [];
@@ -139,6 +145,18 @@ export function buildPrompt(options: PromptBuildOptions): PromptMessage[] {
     if (studioBlock) {
       charBudget -= studioBlock.length;
       result[0].content += `\n\n${studioBlock}`;
+    }
+  } else if (path === 'god' && godEntities.length > 0) {
+    const godBlock = summarizeGodForAI(godEntities);
+    if (godBlock) {
+      charBudget -= godBlock.length;
+      result[0].content += `\n\n${godBlock}`;
+    }
+  } else if (path === 'mortal' && mortalEntities.length > 0) {
+    const mortalBlock = summarizeMortalForAI(mortalEntities);
+    if (mortalBlock) {
+      charBudget -= mortalBlock.length;
+      result[0].content += `\n\n${mortalBlock}`;
     }
   }
 
@@ -249,10 +267,14 @@ gắn khối <StudioCreate> với category "deity" để hệ thống ghi nhớ.
 <StudioCreate>{"category":"deity","name":"Viêm Đế","tagline":"Thần lửa nguyên thủy",
 "fields":{"rank":"Thần Nguyên Thủy","domain":["Lửa","Chiến Tranh"],
 "personality":"Nóng nảy, trọng danh dự","moral":"Thuần Thiện"}}</StudioCreate>`,
-    god: `Ngươi đang dẫn chuyện cho ${charName} — một VỊ THẦN.
-${charName} là thần linh${character.divineRealm ? ` của ${character.divineRealm}` : ''}, sức mạnh phụ thuộc vào tín đồ và lòng sùng kính.`,
-    mortal: `Ngươi đang dẫn chuyện cho ${charName} — một PHÀM NHÂN.
-${charName}${character.mortalClass ? ` là ${character.mortalClass}` : ''} trong một thế giới đầy thần linh và nguy hiểm.`,
+    god: `Ngươi đang dẫn chuyện cho ${charName} — một THỰC THỂ QUYỀN NĂNG (Thần Linh, Trí Tuệ Nhân Tạo, Ác Quỷ...).
+${charName} kiểm soát thế giới${character.divineRealm ? ` (${character.divineRealm})` : ''}, sức mạnh phụ thuộc vào thuộc hạ, tài nguyên và quyền lực.
+Khi người chơi tạo ra cứ điểm mới, thu thập thuộc hạ, can thiệp vào thế giới, hoặc tạo ra di sản, hãy gắn khối <GodCreate> với category tương ứng để hệ thống ghi nhớ. Ví dụ:
+<GodCreate>{"category":"temple","name":"Căn Cứ Ngầm Area 51","tagline":"Lõi mạng chính","fields":{"status":"Đang Hoạt Động"}}</GodCreate>`,
+    mortal: `Ngươi đang dẫn chuyện cho ${charName} — một CÁ NHÂN TRONG THẾ GIỚI (Con người, Dị nhân, Sinh vật...).
+${charName}${character.mortalClass ? ` là ${character.mortalClass}` : ''} trong một bối cảnh đầy thử thách và cơ hội.
+Khi người chơi đạt cấp bậc mới, học được kỹ năng mới, sở hữu trang bị đặc biệt, hoặc trải qua cột mốc quan trọng, hãy gắn khối <MortalCreate> với category tương ứng để hệ thống ghi nhớ. Ví dụ:
+<MortalCreate>{"category":"artifact","name":"Súng Laser Plasma","tagline":"Vũ khí tối tân nhặt được","fields":{"type":"Vũ Khí","rarity":"Sử Thi"}}</MortalCreate>`,
   };
 
   // Hồ sơ khởi tạo — các trường KHÔNG có trong statData/renderStateForAI

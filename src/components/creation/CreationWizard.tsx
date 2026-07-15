@@ -408,16 +408,17 @@ const OriginStep: React.FC<StepCtx> = ({ char, updateChar }) => {
           </button>
         ))}
       </div>
-      {char.mortalClass === 'custom' && (
-        <div className="field-group">
-          <input
-            className="field-input"
-            value={char.mortalOrigin}
-            onChange={e => updateChar({ mortalOrigin: e.target.value })}
-            placeholder="Nhập xuất thân tùy chỉnh..."
-          />
-        </div>
-      )}
+      <div className="field-group">
+        <label className="field-label">
+          {char.mortalClass === 'custom' ? 'Hệ Phái Tùy Chỉnh' : 'Xuất Thân Cụ Thể (Tùy chọn)'}
+        </label>
+        <input
+          className="field-input"
+          value={char.mortalOrigin}
+          onChange={e => updateChar({ mortalOrigin: e.target.value })}
+          placeholder={char.mortalClass === 'custom' ? "Nhập hệ phái tùy chỉnh..." : "VD: Tán tu, Con rơi của Zeus, Quý tộc phương Bắc..."}
+        />
+      </div>
     </div>
   );
 };

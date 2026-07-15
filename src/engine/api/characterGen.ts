@@ -5,6 +5,7 @@
 
 import { sendChat } from './apiClient';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { usePresetStore } from '@/stores/presetStore';
 import type { GamePath, CharacterData, AttributeDef, TraitDef } from '@/components/creation/creationData';
 import {
   CREATOR_ATTRIBUTES, GOD_ATTRIBUTES, MORTAL_ATTRIBUTES,
@@ -44,8 +45,17 @@ function buildGenPrompt(path: GamePath): string {
     ? `"divineRealm","faction","pantheonName","era","region"`
     : `"mortalClass","mortalOrigin","faction","era","region"`;
 
-  return `Bạn là trợ lý tạo nhân vật cho game nhập vai GOD SIMULATOR. Người chơi đi con đường ${pathName}.
-Dựa trên MÔ TẢ của người chơi, hãy tạo một hồ sơ nhân vật hợp lý, giàu chất riêng, bằng TIẾNG VIỆT.
+  const preset = usePresetStore.getState().activePreset;
+  let presetContext = '';
+  if (preset && preset.prompts && preset.prompts.length > 0) {
+    presetContext = `\n\n--- THÔNG TIN BỐI CẢNH / LUẬT CHƠI (PRESET) ---\n` +
+      preset.prompts.map(p => p.content).join('\n\n') +
+      `\n---------------------------------------------\n` +
+      `Hãy kết hợp các thông tin bối cảnh trên để làm phong phú, tạo chiều sâu và phù hợp hơn cho nhân vật.\n`;
+  }
+
+  return `Bạn là trợ lý tạo nhân vật xuất sắc, chuyên nghiệp và giàu trí tưởng tượng cho game nhập vai GOD SIMULATOR. Người chơi đi con đường ${pathName}.
+Dựa trên MÔ TẢ của người chơi, hãy tạo một hồ sơ nhân vật hợp lý, độc đáo, giàu chất riêng, có chiều sâu lịch sử và động cơ rõ ràng bằng TIẾNG VIỆT.${presetContext}
 
 CHỈ trả về MỘT khối JSON hợp lệ (không kèm giải thích, không markdown), theo schema:
 {

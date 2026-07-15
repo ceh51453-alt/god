@@ -167,13 +167,7 @@ export const StatusPanel: React.FC<Props> = ({ fullPage }) => {
         </div>
       )}
 
-      {/* Crisis (live) */}
-      {w.crisis && (
-        <div className="sp-section">
-          <h5 className="sp-section-title">Khủng Hoảng</h5>
-          <p className="sp-crisis">{w.crisis}</p>
-        </div>
-      )}
+
 
       {/* Companion (live) */}
       {statData.companion.name && (

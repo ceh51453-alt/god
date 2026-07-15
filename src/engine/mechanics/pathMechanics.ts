@@ -47,15 +47,79 @@ export const PATH_TIERS: Record<GamePath, Tier[]> = {
   ],
 };
 
-export function progressionLabel(path: GamePath, overrideLabel?: string): string {
+export const MORTAL_TIERS_DEMIGOD: Tier[] = [
+  { name: 'Phàm Nhân', at: 0, desc: 'Dòng máu thần thánh chưa thức tỉnh' },
+  { name: 'Thức Tỉnh', at: 60, desc: 'Sức mạnh vượt trội bộc phát' },
+  { name: 'Anh Hùng Trẻ', at: 180, desc: 'Bắt đầu lập chiến công' },
+  { name: 'Vang Danh', at: 450, desc: 'Chiến công lừng lẫy, vua chúa nể trọng' },
+  { name: 'Bán Thần', at: 1000, desc: 'Kích hoạt hoàn toàn sức mạnh thần thánh' },
+  { name: 'Huyền Thoại', at: 2200, desc: 'Tên tuổi trở thành thần thoại' },
+  { name: 'Thánh Nhân / Tinh Tú', at: 4200, desc: 'Vượt qua phàm trần' },
+  { name: 'Thần Linh Thực Thụ', at: 8000, desc: 'Chính thức bước vào đền thờ' },
+];
+
+export const MORTAL_TIERS_MAGE: Tier[] = [
+  { name: 'Người Thường', at: 0, desc: 'Chưa cảm nhận được ma lực' },
+  { name: 'Tập Sự', at: 60, desc: 'Sử dụng phép thuật cơ bản' },
+  { name: 'Pháp Sư', at: 180, desc: 'Am hiểu nguyên tố, thi triển ma pháp trận' },
+  { name: 'Đại Pháp Sư', at: 450, desc: 'Uy lực dời non lấp bể' },
+  { name: 'Ma Đạo Sư', at: 1000, desc: 'Làm chủ bí thuật thượng thừa' },
+  { name: 'Hiền Giả', at: 2200, desc: 'Tiếp cận bản chất của vạn vật' },
+  { name: 'Bán Thần Phép Thuật', at: 4200, desc: 'Tạo lập quy luật ma pháp' },
+  { name: 'Thần Ma Pháp', at: 8000, desc: 'Trở thành khái niệm ma thuật' },
+];
+
+export const MORTAL_TIERS_CYBERPUNK: Tier[] = [
+  { name: 'Người Thường', at: 0, desc: 'Cơ thể sinh học thuần túy' },
+  { name: 'Cấy Ghép Cơ Bản', at: 60, desc: 'Có linh kiện hỗ trợ' },
+  { name: 'Tăng Cường Đặc Nhiệm', at: 180, desc: 'Khả năng chiến đấu vượt giới hạn' },
+  { name: 'Cyborg Chiến Đấu', at: 450, desc: 'Vũ khí hạng nặng tích hợp' },
+  { name: 'Vượt Quá Nhân Loại', at: 1000, desc: 'Não bộ kết nối trực tiếp với lõi hệ thống' },
+  { name: 'Bóng Ma Mạng', at: 2200, desc: 'Cơ thể chỉ là vật chứa' },
+  { name: 'Đấng Sáng Lập AI', at: 4200, desc: 'Dung hợp với mạng lưới toàn cầu' },
+  { name: 'Thần Máy Móc', at: 8000, desc: 'Chi phối vạn vật bằng công nghệ' },
+];
+
+export const MORTAL_TIERS_KNIGHT: Tier[] = [
+  { name: 'Lính Đánh Thuê', at: 0, desc: 'Kiếm sống qua ngày' },
+  { name: 'Đội Trưởng', at: 60, desc: 'Chỉ huy một tiểu đội nhỏ' },
+  { name: 'Hiệp Sĩ', at: 180, desc: 'Được phong tước, có lãnh địa nhỏ' },
+  { name: 'Đại Hiệp Sĩ', at: 450, desc: 'Uy danh vang dội, tướng lĩnh tài ba' },
+  { name: 'Nam Tước / Lãnh Chúa', at: 1000, desc: 'Cai quản một phương' },
+  { name: 'Tướng Quân', at: 2200, desc: 'Thống lĩnh đại quân vương quốc' },
+  { name: 'Quân Vương', at: 4200, desc: 'Lên ngôi hoàng đế, mở rộng bờ cõi' },
+  { name: 'Đại Đế', at: 8000, desc: 'Thống nhất các lục địa, lưu danh thiên cổ' },
+];
+
+export function progressionLabel(path: GamePath, overrideLabel?: string, mortalClass?: string): string {
   if (overrideLabel && overrideLabel.trim()) return overrideLabel;
-  return path === 'creator' ? 'Kỷ Nguyên Sáng Thế'
-    : path === 'god' ? 'Thần Cấp'
-    : 'Cảnh Giới Tu Luyện';
+  if (path === 'creator') return 'Kỷ Nguyên Sáng Thế';
+  if (path === 'god') return 'Thần Cấp';
+  
+  switch (mortalClass) {
+    case 'Bán Thần / Anh Hùng': return 'Hành Trình Anh Hùng';
+    case 'Ma Pháp Sư': return 'Bậc Ma Pháp';
+    case 'Dị Nhân / Cơ Đốc': return 'Cấp Độ Nâng Cấp';
+    case 'Kỵ Sĩ / Lãnh Chúa': return 'Thang Hiệp Sĩ / Danh Vọng';
+    default: return 'Cảnh Giới Tu Luyện';
+  }
 }
 
-export function deriveTier(path: GamePath, progress: number, override?: Tier[]): TierState {
-  const tiers = override && override.length >= 2 ? override : PATH_TIERS[path];
+export function deriveTier(path: GamePath, progress: number, override?: Tier[] | null, mortalClass?: string): TierState {
+  let tiers = override && override.length >= 2 ? override : PATH_TIERS[path];
+  
+  if (!override || override.length < 2) {
+    if (path === 'mortal') {
+      switch (mortalClass) {
+        case 'Bán Thần / Anh Hùng': tiers = MORTAL_TIERS_DEMIGOD; break;
+        case 'Ma Pháp Sư': tiers = MORTAL_TIERS_MAGE; break;
+        case 'Dị Nhân / Cơ Đốc': tiers = MORTAL_TIERS_CYBERPUNK; break;
+        case 'Kỵ Sĩ / Lãnh Chúa': tiers = MORTAL_TIERS_KNIGHT; break;
+        default: break;
+      }
+    }
+  }
+
   let index = 0;
   for (let i = 0; i < tiers.length; i++) if (progress >= tiers[i].at) index = i;
   const cur = tiers[index];

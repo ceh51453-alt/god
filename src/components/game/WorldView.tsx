@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { useStudioStore } from '@/components/studio/studioStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -99,7 +99,11 @@ const CategorySection: React.FC<{
 export const WorldView: React.FC = () => {
   const game = useChatStore(s => s.game);
   const statData = useChatStore(s => s.statData);
+  const addMessage = useChatStore(s => s.addMessage);
   const { path, character } = game;
+  const [buildDomainId, setBuildDomainId] = useState<string | null>(null);
+  const [issueEdictDomainId, setIssueEdictDomainId] = useState<string | null>(null);
+  const [edictInput, setEdictInput] = useState('');
 
   // Get studio entities by category
   const allEntities = useStudioStore(s => s.entities);
@@ -114,6 +118,10 @@ export const WorldView: React.FC = () => {
 
   const totalEntities = allEntities.length;
   const timeline = statData.timeline || [];
+  
+  const activeEvents = statData.world.activeEvents || [];
+  const domains = Object.entries(statData.domains || {});
+  const armies = Object.entries(statData.armies || {});
 
   const pathAccent = path === 'creator' ? '#c9a84c' : path === 'god' ? '#d4874a' : '#7b8fa8';
 
@@ -169,7 +177,156 @@ export const WorldView: React.FC = () => {
             </div>
           </div>
         )}
+        {statData.world.calendar && (
+          <div className="gv-card">
+            <div className="gv-card-icon"><ScrollIcon size={24} color={pathAccent} /></div>
+            <div className="gv-card-info">
+              <h4>Lịch Trình</h4>
+              <p>Ngày {statData.world.calendar.day}/{statData.world.calendar.month}/{statData.world.calendar.year}</p>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* World Events */}
+      {activeEvents.length > 0 && (
+        <div className="wv-section">
+          <div className="wv-section-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a0555a" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <h4 className="wv-section-title" style={{ color: '#a0555a' }}>Sự Kiện Thế Giới</h4>
+          </div>
+          <div className="wv-events-grid">
+            {activeEvents.map((ev, i) => (
+              <div key={i} className="wv-event-card">
+                <div className="wv-event-header">
+                  <span className="wv-event-name">{ev.name}</span>
+                  <span className={`wv-event-status status-${ev.status}`}>{ev.status}</span>
+                </div>
+                <div className="wv-event-urgency">
+                  <div className="wv-urgency-bar">
+                    <div className="wv-urgency-fill" style={{ width: `${ev.urgency}%`, background: ev.urgency > 70 ? '#a0555a' : ev.urgency > 40 ? '#c9a84c' : '#6aaa72' }} />
+                  </div>
+                  <span className="wv-urgency-label">{ev.urgency}%</span>
+                </div>
+                {ev.impact && <p className="wv-event-impact">{ev.impact}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Domains */}
+      {domains.length > 0 && (
+        <div className="wv-section">
+          <div className="wv-section-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4a8fa8" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M3 21h18M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4" />
+            </svg>
+            <h4 className="wv-section-title">Lãnh Địa & Căn Cứ</h4>
+            <span className="wv-section-count">{domains.length}</span>
+          </div>
+          <div className="wv-domains-grid">
+            {domains.map(([id, d]) => {
+              const bEntries = Object.entries(d.buildings || {});
+              return (
+                <div key={id} className="wv-domain-card">
+                  <div className="wv-domain-header">
+                    <div className="wv-domain-identity">
+                      <span className="wv-domain-name">{d.name || id}</span>
+                      <span className="wv-domain-type">{d.type} - {d.size}</span>
+                    </div>
+                    <button className="wv-build-btn" onClick={() => setBuildDomainId(id)}>
+                      Xây dựng
+                    </button>
+                  </div>
+                  <p className="wv-domain-desc">{d.description}</p>
+                  
+                  <div className="wv-domain-stats-grid">
+                    <div className="wv-domain-stat"><span>Phồn Vinh</span><strong style={{ color: '#c9a84c' }}>{d.prosperity}</strong></div>
+                    <div className="wv-domain-stat"><span>An Ninh</span><strong style={{ color: '#4a8fa8' }}>{d.security}</strong></div>
+                    <div className="wv-domain-stat"><span>Dân Số</span><strong>{d.population}</strong></div>
+                    <div className="wv-domain-stat"><span>Lòng Dân</span><strong style={{ color: d.loyalty < 30 ? '#a0555a' : d.loyalty < 50 ? '#c9a84c' : d.loyalty < 70 ? 'inherit' : d.loyalty < 90 ? '#6aaa72' : '#d4874a' }}>{d.loyalty}% ({d.loyalty < 30 ? 'Hỗn loạn' : d.loyalty < 50 ? 'Bất ổn' : d.loyalty < 70 ? 'Bình yên' : d.loyalty < 90 ? 'Phát triển' : 'Thái bình'})</strong></div>
+                  </div>
+
+                  <div className="wv-domain-resources">
+                    <span className="wv-res-badge" title="Vàng">🟡 {d.resources?.gold || 0}</span>
+                    <span className="wv-res-badge" title="Lương Thực">🌾 {d.resources?.food || 0}</span>
+                    <span className="wv-res-badge" title="Gỗ">🪵 {d.resources?.wood || 0}</span>
+                    <span className="wv-res-badge" title="Đá">🪨 {d.resources?.stone || 0}</span>
+                  </div>
+
+                  {bEntries.length > 0 && (
+                    <div className="wv-domain-buildings">
+                      {bEntries.map(([bId, b]) => (
+                        <div key={bId} className="wv-building-item">
+                          <div className="wv-building-info">
+                            <span className="wv-building-name">{b.name} <small>Lv.{b.level}</small></span>
+                          </div>
+                          {b.isConstructing && (
+                            <div className="wv-building-progress-wrapper" title={`Còn ${b.turnsLeft} turn`}>
+                              <div className="wv-building-progress-bar" style={{ width: `${Math.max(10, 100 - (b.turnsLeft * 10))}%` }} />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="wv-domain-edicts-header" style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="wv-edicts-title" style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Pháp lệnh</span>
+                    <button className="wv-build-btn" onClick={() => setIssueEdictDomainId(id)}>Ban hành</button>
+                  </div>
+                  {Object.keys(d.edicts || {}).length > 0 && (
+                    <div className="wv-domain-edicts" style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {Object.entries(d.edicts || {}).map(([eId, e]) => (
+                        <div key={eId} className="wv-edict-item" style={{ display: 'flex', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', padding: '4px 8px', borderRadius: 4 }}>
+                          <span className="wv-edict-name" style={{ fontSize: 11, color: 'var(--text-primary)' }}>{e.title}</span>
+                          <span className={`wv-edict-status status-${e.status}`} style={{ fontSize: 9, textTransform: 'uppercase', color: e.status === 'active' ? '#6aaa72' : 'var(--text-muted)' }}>{e.status === 'active' ? 'Thực thi' : e.status === 'suspended' ? 'Tạm hoãn' : 'Bãi bỏ'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Armies */}
+      {armies.length > 0 && (
+        <div className="wv-section">
+          <div className="wv-section-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a0555a" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+            </svg>
+            <h4 className="wv-section-title">Lực Lượng Vũ Trang</h4>
+            <span className="wv-section-count">{armies.length}</span>
+          </div>
+          <div className="wv-armies-list">
+            {armies.map(([id, a]) => (
+              <div key={id} className="wv-army-row">
+                <div className="wv-army-main">
+                  <span className="wv-army-name">{a.name || id}</span>
+                  <span className="wv-army-type">{a.type}</span>
+                </div>
+                <div className="wv-army-details">
+                  <span className="wv-army-stat">Quân số: <strong>{a.size.toLocaleString()}</strong></span>
+                  <span className="wv-army-stat">Sĩ khí: <strong style={{ color: a.morale > 70 ? '#6aaa72' : a.morale < 30 ? '#a0555a' : '#c9a84c' }}>{a.morale}</strong></span>
+                  <span className="wv-army-stat">Kỷ luật: <strong>{a.discipline || 50}</strong></span>
+                  <span className="wv-army-stat">Trang bị: <strong>Lv.{a.equipmentLevel || 1}</strong></span>
+                </div>
+                <div className="wv-army-status">
+                  <span className={`wv-army-badge status-${a.status}`}>{a.status}</span>
+                  {a.location && <span className="wv-army-loc">Tại: {a.location}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Universe Statistics */}
       {totalEntities > 0 && (
@@ -292,6 +449,66 @@ export const WorldView: React.FC = () => {
         <div className="gv-empty-note">
           <MapIcon size={40} color="var(--color-ash)" />
           <p>Hãy chơi qua tab {path === 'creator' ? '"Sáng Tạo"' : path === 'god' ? '"Phàm Giới"' : '"Hành Trình"'} để mở khóa thêm nội dung.</p>
+        </div>
+      )}
+
+      {/* Construction Modal */}
+      {buildDomainId && (
+        <div className="wv-modal-overlay" onClick={() => setBuildDomainId(null)}>
+          <div className="wv-modal" onClick={e => e.stopPropagation()}>
+            <div className="wv-modal-header">
+              <h4>Xây dựng tại {statData.domains[buildDomainId]?.name || buildDomainId}</h4>
+              <button className="wv-modal-close" onClick={() => setBuildDomainId(null)}>×</button>
+            </div>
+            <div className="wv-modal-body">
+              <p>Chọn công trình muốn xây dựng hoặc nâng cấp. Lệnh sẽ được gửi tới AI để xử lý trừ tài nguyên và cập nhật thế giới.</p>
+              <div className="wv-build-options">
+                {['Lâu Đài', 'Nông Trại', 'Chợ', 'Doanh Trại', 'Tường Thành', 'Bến Cảng', 'Học Viện'].map(b => (
+                  <button key={b} className="wv-build-option" onClick={() => {
+                    addMessage({ role: 'user', content: `/action Xây dựng ${b} tại ${statData.domains[buildDomainId]?.name || buildDomainId}` });
+                    setBuildDomainId(null);
+                  }}>
+                    Xây {b}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edict Modal */}
+      {issueEdictDomainId && (
+        <div className="wv-modal-overlay" onClick={() => setIssueEdictDomainId(null)}>
+          <div className="wv-modal" onClick={e => e.stopPropagation()}>
+            <div className="wv-modal-header">
+              <h4>Ban hành Pháp lệnh tại {statData.domains[issueEdictDomainId]?.name || issueEdictDomainId}</h4>
+              <button className="wv-modal-close" onClick={() => setIssueEdictDomainId(null)}>×</button>
+            </div>
+            <div className="wv-modal-body">
+              <p>Mô tả nội dung pháp lệnh bạn muốn ban hành. Quan chấp hành (AI) sẽ đánh giá và thi hành nếu hợp lý.</p>
+              <textarea 
+                className="wv-edict-input" 
+                placeholder="VD: Giảm thuế nông nghiệp 20% trong tháng này để hỗ trợ nạn đói..."
+                value={edictInput}
+                onChange={e => setEdictInput(e.target.value)}
+                rows={4}
+                style={{ width: '100%', padding: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-light)', color: 'var(--text-primary)', borderRadius: '4px', marginBottom: '12px', resize: 'none' }}
+              />
+              <button 
+                className="wv-submit-btn" 
+                style={{ width: '100%', padding: '8px', background: '#c9a84c', color: '#000', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: 'pointer' }}
+                onClick={() => {
+                  if (!edictInput.trim()) return;
+                  addMessage({ role: 'user', content: `/action Ban hành pháp lệnh tại ${statData.domains[issueEdictDomainId]?.name || issueEdictDomainId}: ${edictInput}` });
+                  setIssueEdictDomainId(null);
+                  setEdictInput('');
+                }}
+              >
+                Ban Hành
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

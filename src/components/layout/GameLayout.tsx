@@ -10,6 +10,8 @@ import { PowersView } from '@/components/game/PowersView';
 import { RelationsView } from '@/components/game/RelationsView';
 import { CodexView } from '@/components/game/CodexView';
 import { CreationStudio } from '@/components/studio/CreationStudio';
+import { CultivationAbode } from '@/components/studio/CultivationAbode';
+import { DivineSanctum } from '@/components/studio/DivineSanctum';
 import { seasonLabel } from '@/engine/mvu/timeEngine';
 import {
   ChatIcon, MapIcon, TempleIcon, SwordIcon, CrownIcon,
@@ -52,6 +54,7 @@ function getNavItems(path: string | null): NavItem[] {
     case 'god':
       return [
         { id: 'chat', icon: ChatIcon, label: 'Phàm Giới' },
+        { id: 'studio', icon: GenesisIcon, label: 'Thần Điện' },
         { id: 'world', icon: TempleIcon, label: 'Đền Thờ' },
         { id: 'status_full', icon: DivinePowerIcon, label: 'Thần Lực' },
         { id: 'relations', icon: CrownIcon, label: 'Thần Hệ' },
@@ -61,6 +64,7 @@ function getNavItems(path: string | null): NavItem[] {
     case 'mortal':
       return [
         { id: 'chat', icon: ChatIcon, label: 'Hành Trình' },
+        { id: 'studio', icon: GenesisIcon, label: 'Động Phủ' },
         { id: 'world', icon: MapIcon, label: 'Thế Giới' },
         { id: 'status_full', icon: ShieldIcon, label: 'Bản Thân' },
         { id: 'relations', icon: FollowersIcon, label: 'Quan Hệ' },
@@ -214,6 +218,8 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ onBackToTitle }) => {
           <div className="view-container" key={activeView}>
             {activeView === 'chat' && <ChatPanel />}
             {activeView === 'studio' && game.path === 'creator' && <CreationStudio />}
+            {activeView === 'studio' && game.path === 'god' && <DivineSanctum />}
+            {activeView === 'studio' && game.path === 'mortal' && <CultivationAbode />}
             {activeView === 'world' && <WorldView />}
             {activeView === 'status_full' && <StatusPanel fullPage />}
             {activeView === 'powers' && <PowersView />}

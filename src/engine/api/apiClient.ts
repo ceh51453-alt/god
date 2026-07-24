@@ -239,10 +239,10 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
         ? sampling.thinkingBudget + sampling.max_tokens
         : sampling.max_tokens;
       const body: Record<string, unknown> = {
-        ...(systemMsg && { systemInstruction: { parts: [{ text: systemMsg.content }] } }),
+        ...(systemMsg?.content ? { systemInstruction: { parts: [{ text: systemMsg.content }] } } : {}),
         contents: chatMsgs.map(m => ({
           role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }],
+          parts: [{ text: m.content || ' ' }],
         })),
         generationConfig: {
           temperature: sampling.temperature,
@@ -309,8 +309,8 @@ export function buildSimpleBody(
       };
     case 'google':
       return {
-        ...(system && { systemInstruction: { parts: [{ text: system }] } }),
-        contents: [{ role: 'user', parts: [{ text: user }] }],
+        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+        contents: [{ role: 'user', parts: [{ text: user || ' ' }] }],
         generationConfig: { temperature, maxOutputTokens: maxTokens },
       };
     default: // openai, custom

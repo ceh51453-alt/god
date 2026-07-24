@@ -263,7 +263,7 @@ const SublistField: React.FC<{
   field: FieldDef; value: SubItem[]; accent: string; onChange: (v: SubItem[]) => void;
 }> = ({ field: f, value, accent, onChange }) => {
   const cols = f.cols ?? { title: 'Mục' };
-  const rows = value;
+  const rows = value || [];
   const setRow = (i: number, patch: Partial<SubItem>) =>
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const addRow = () => onChange([...rows, { title: '', meta: '', detail: '' }]);

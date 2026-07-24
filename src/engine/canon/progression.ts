@@ -46,6 +46,7 @@ export function getProgressionOverride(
   path: GamePath,
   studioEntities: StudioEntity[] | undefined,
 ): LadderOverride | null {
+  if (path !== 'mortal') return null;
   if (!studioEntities || studioEntities.length === 0) return null;
 
   let best: { e: StudioEntity; nodes: RawTier[] } | null = null;

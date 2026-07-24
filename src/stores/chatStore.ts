@@ -364,6 +364,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     // Lượt LUÔN tiến, kể cả khi AI không phát patch — giữ game.turnCount và
     // _turnCount đồng bộ (lorebook sticky/cooldown/delay chạy theo _turnCount).
     newState = { ...newState, _turnCount: prevTurn + 1 };
+    
+    // Tăng quyền năng bị động mỗi lượt
+    newState.resources = {
+      ...newState.resources,
+      power: Math.min(999999, newState.resources.power + 100)
+    };
+    
     newState = runDerivedEffects(newState);
     set({ statData: newState });
 

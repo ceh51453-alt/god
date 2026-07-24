@@ -241,13 +241,13 @@ export const StatDataSchema = z.object({
 
   // Resources
   resources: z.object({
-    power: cInt(0, 99999, 100),
+    power: cInt(0, 999999, 1000),
     followers: cInt(0, 99999999, 0),
     wealth: cInt(0, 99999999, 0),
     faith: cInt(0, 100, 0),
     karma: cInt(-100, 100, 0),
     progress: cInt(0, 9999999, 0),
-  }).default(() => ({ power: 100, followers: 0, wealth: 0, faith: 0, karma: 0, progress: 0 })),
+  }).default(() => ({ power: 1000, followers: 0, wealth: 0, faith: 0, karma: 0, progress: 0 })),
 
   // World State
   world: z.object({
@@ -337,7 +337,7 @@ export const StatDataSchema = z.object({
   attributes: {}, _derived: {},
   traits: [],
   abilities: {},
-  resources: { power: 100, followers: 0, wealth: 0, faith: 0, karma: 0, progress: 0 },
+  resources: { power: 1000, followers: 0, wealth: 0, faith: 0, karma: 0, progress: 0 },
   world: {
     calendar: { day: 1, month: 1, year: 1 },
     era: '', eraDescription: '', region: '', faction: '',

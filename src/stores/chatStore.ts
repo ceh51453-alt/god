@@ -19,7 +19,6 @@ export interface ChatMessage {
   content: string;
   rawContent?: string;        // Original AI response (before tag stripping)
   cleanContent?: string;      // Narrative text (after tag stripping)
-  thinkingText?: string;      // AI thinking/reasoning content
   timestamp: number;
   streaming?: boolean;
   retryCount?: number;
@@ -45,7 +44,6 @@ interface ChatState {
   messages: ChatMessage[];
   isStreaming: boolean;
   streamingText: string;
-  streamingThinkingText: string;
   retryingAttempt: number | null;
   retryingMax: number | null;
 
@@ -66,10 +64,9 @@ interface ChatState {
 
   // Actions
   addMessage: (msg: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  updateLastAssistantMessage: (content: string, thinkingText?: string) => void;
+  updateLastAssistantMessage: (content: string) => void;
   setStreaming: (streaming: boolean, text?: string) => void;
   appendStreamText: (chunk: string) => void;
-  appendStreamThinkingText: (chunk: string) => void;
   setRetrying: (attempt: number | null, max?: number | null) => void;
   clearMessages: () => void;
 
@@ -194,7 +191,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   messages: [],
   isStreaming: false,
   streamingText: '',
-  streamingThinkingText: '',
   retryingAttempt: null,
   retryingMax: null,
 
@@ -228,7 +224,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }, 100);
   },
 
-  updateLastAssistantMessage: (content, thinkingText) => {
+  updateLastAssistantMessage: (content) => {
     set(state => {
       const msgs = [...state.messages];
       for (let i = msgs.length - 1; i >= 0; i--) {
@@ -237,7 +233,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             ...msgs[i],
             content,
             streaming: false,
-            ...(thinkingText != null && { thinkingText }),
           };
           break;
         }
@@ -252,15 +247,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   setStreaming: (streaming, text = '') => set({
     isStreaming: streaming,
     streamingText: streaming ? text : '',
-    streamingThinkingText: streaming ? '' : '',
   }),
 
   appendStreamText: (chunk) => set(state => ({
     streamingText: state.streamingText + chunk,
-  })),
-
-  appendStreamThinkingText: (chunk) => set(state => ({
-    streamingThinkingText: state.streamingThinkingText + chunk,
   })),
 
   setRetrying: (attempt, max = null) => set({

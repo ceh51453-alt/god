@@ -5,78 +5,12 @@ import { usePresetStore } from '@/stores/presetStore';
    API CLIENT — Proxy-aware, SSE streaming, auto-retry
    ═══════════════════════════════════════════════════════ */
 
-/**
- * Bóc tách realtime thẻ <think>...</think> từ luồng text 
- * để đẩy vào khung UI Thinking.
- */
-class ThinkTagParser {
-  private buffer = '';
-  private inThink = false;
-  
-  process(chunk: string, onText: (t: string) => void, onThink: (t: string) => void) {
-    this.buffer += chunk;
-    
-    while (this.buffer.length > 0) {
-      if (!this.inThink) {
-        const startIndex = this.buffer.indexOf('<think>');
-        if (startIndex === -1) {
-          const lastLess = this.buffer.lastIndexOf('<');
-          if (lastLess !== -1 && '<think>'.startsWith(this.buffer.slice(lastLess))) {
-            if (lastLess > 0) {
-               onText(this.buffer.slice(0, lastLess));
-               this.buffer = this.buffer.slice(lastLess);
-            }
-            break;
-          } else {
-            onText(this.buffer);
-            this.buffer = '';
-          }
-        } else {
-          if (startIndex > 0) {
-            onText(this.buffer.slice(0, startIndex));
-          }
-          this.inThink = true;
-          this.buffer = this.buffer.slice(startIndex + 7);
-        }
-      } else {
-        const endIndex = this.buffer.indexOf('</think>');
-        if (endIndex === -1) {
-          const lastLess = this.buffer.lastIndexOf('<');
-          if (lastLess !== -1 && '</think>'.startsWith(this.buffer.slice(lastLess))) {
-            if (lastLess > 0) {
-               onThink(this.buffer.slice(0, lastLess));
-               this.buffer = this.buffer.slice(lastLess);
-            }
-            break;
-          } else {
-            onThink(this.buffer);
-            this.buffer = '';
-          }
-        } else {
-          if (endIndex > 0) {
-            onThink(this.buffer.slice(0, endIndex));
-          }
-          this.inThink = false;
-          this.buffer = this.buffer.slice(endIndex + 8);
-        }
-      }
-    }
-  }
-  
-  flush(onText: (t: string) => void, onThink: (t: string) => void) {
-    if (this.buffer) {
-      if (this.inThink) onThink(this.buffer);
-      else onText(this.buffer);
-      this.buffer = '';
-    }
-  }
-}
+
 
 interface ApiRequestOptions {
   messages: Array<{ role: string; content: string }>;
   onChunk?: (text: string) => void;
-  onThinkingChunk?: (text: string) => void;
-  onDone?: (fullText: string, thinkingText: string) => void;
+  onDone?: (fullText: string) => void;
   onError?: (error: Error) => void;
   signal?: AbortSignal;
 }
@@ -213,31 +147,13 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
         stream: sampling.streaming,
         ...(sampling.stop_sequences.length > 0 && { stop_sequences: sampling.stop_sequences }),
       };
-      if (sampling.thinking) {
-        body.thinking = { type: 'enabled', budget_tokens: sampling.thinkingBudget };
-        // Anthropic requires temperature=1 when thinking is enabled
-        delete body.temperature;
-        delete body.top_p;
-        delete body.top_k;
-        // max_tokens must be larger than budget_tokens
-        if (sampling.max_tokens <= sampling.thinkingBudget) {
-          body.max_tokens = sampling.thinkingBudget + sampling.max_tokens;
-        }
-      }
       return body;
     }
 
     case 'google': {
       const systemMsg = messages.find(m => m.role === 'system');
       const chatMsgs = messages.filter(m => m.role !== 'system');
-      // Gemini tính token suy nghĩ VÀO maxOutputTokens. Nếu để nguyên max_tokens
-      // (vd 2048) mà thinkingBudget lớn hơn (vd 10000) thì phần suy nghĩ ngốn hết
-      // hạn ngạch → model dừng ở finishReason=MAX_TOKENS trước khi kịp viết câu
-      // trả lời (triệu chứng: "cứ suy nghĩ mà không nhả nội dung"). Phải cộng thêm
-      // budget để chừa chỗ cho phần trả lời.
-      const maxOut = sampling.thinking && sampling.max_tokens <= sampling.thinkingBudget
-        ? sampling.thinkingBudget + sampling.max_tokens
-        : sampling.max_tokens;
+      const maxOut = sampling.max_tokens;
       const body: Record<string, unknown> = {
         ...(systemMsg?.content ? { systemInstruction: { parts: [{ text: systemMsg.content }] } } : {}),
         contents: chatMsgs.map(m => ({
@@ -252,20 +168,13 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
           frequencyPenalty: sampling.frequency_penalty,
           presencePenalty: sampling.presence_penalty,
           ...(sampling.stop_sequences.length > 0 && { stopSequences: sampling.stop_sequences }),
-          // includeThoughts: true → Gemini mới trả về phần tóm tắt suy nghĩ để hiển thị.
-          ...(sampling.thinking && { thinkingConfig: { thinkingBudget: sampling.thinkingBudget, includeThoughts: true } }),
         },
       };
       return body;
     }
 
     default: { // openai, custom
-      // Với model reasoning (o1/o3, deepseek-r1, Gemini qua proxy OpenAI-compat...),
-      // token suy nghĩ cũng bị tính vào max_tokens. max_tokens quá nhỏ so với
-      // thinkingBudget → suy nghĩ ngốn hết, không còn chỗ viết câu trả lời. Nới thêm.
-      const maxTok = sampling.thinking && sampling.max_tokens <= sampling.thinkingBudget
-        ? sampling.thinkingBudget + sampling.max_tokens
-        : sampling.max_tokens;
+      const maxTok = sampling.max_tokens;
       const body: Record<string, unknown> = {
         model: profile.selectedModel || 'gpt-4o-mini',
         messages,
@@ -280,10 +189,6 @@ function buildBody(profile: ConnectionProfile, messages: Array<{ role: string; c
         ...(sampling.seed !== null && { seed: sampling.seed }),
         ...(sampling.stop_sequences.length > 0 && { stop: sampling.stop_sequences }),
       };
-      if (sampling.thinking) {
-        // OpenAI-compatible reasoning (works with o1, o3, deepseek-r1, etc.)
-        body.include_reasoning = true;
-      }
       return body;
     }
   }
@@ -349,20 +254,14 @@ async function parseSSEStream(
   provider: ProviderPreset,
   onChunk: (text: string) => void,
   signal?: AbortSignal,
-  onThinkingChunk?: (text: string) => void,
   onActivity?: () => void,
-): Promise<{ fullText: string; thinkingText: string }> {
+): Promise<{ fullText: string }> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error('No response body');
 
   const decoder = new TextDecoder();
-  const thinkParser = new ThinkTagParser();
   let buffer = '';
   let fullText = '';
-  let thinkingText = '';
-  let insideNativeThinking = false;
-  // Track current Anthropic content block type
-  let currentBlockType: 'text' | 'thinking' | null = null;
   // Lý do model dừng — để chẩn đoán "chỉ thinking không có nội dung" (MAX_TOKENS...)
   let finishReason: string | null = null;
 
@@ -390,19 +289,11 @@ async function parseSSEStream(
         try {
           const json = JSON.parse(trimmed.slice(6));
           let chunk = '';
-          let thinkingChunk = '';
 
           switch (provider) {
             case 'anthropic':
-              // Track content block type for thinking vs text
-              if (json.type === 'content_block_start') {
-                currentBlockType = json.content_block?.type === 'thinking' ? 'thinking' : 'text';
-              } else if (json.type === 'content_block_stop') {
-                currentBlockType = null;
-              } else if (json.type === 'content_block_delta') {
-                if (currentBlockType === 'thinking' && json.delta?.thinking) {
-                  thinkingChunk = json.delta.thinking;
-                } else if (json.delta?.text) {
+              if (json.type === 'content_block_delta') {
+                if (json.delta?.text) {
                   chunk = json.delta.text;
                 }
               } else if (json.type === 'message_delta' && json.delta?.stop_reason) {
@@ -414,9 +305,7 @@ async function parseSSEStream(
               const parts = json.candidates?.[0]?.content?.parts;
               if (Array.isArray(parts)) {
                 for (const part of parts) {
-                  if (part.thought && part.text) {
-                    thinkingChunk += part.text;
-                  } else if (part.text) {
+                  if (part.text) {
                     chunk += part.text;
                   }
                 }
@@ -430,11 +319,6 @@ async function parseSSEStream(
               // Check for reasoning_content (DeepSeek, o1, o3, etc.)
               const delta = json.choices?.[0]?.delta;
               if (delta) {
-                if (delta.reasoning_content) {
-                  thinkingChunk = delta.reasoning_content;
-                } else if (delta.reasoning) {
-                  thinkingChunk = delta.reasoning;
-                }
                 if (delta.content) {
                   chunk = delta.content;
                 }
@@ -446,40 +330,9 @@ async function parseSSEStream(
             }
           }
 
-          if (thinkingChunk) {
-            if (usePresetStore.getState().activePreset) {
-              if (!insideNativeThinking) {
-                const prefix = '<think>\n';
-                fullText += prefix;
-                onChunk(prefix);
-                insideNativeThinking = true;
-              }
-              fullText += thinkingChunk;
-              onChunk(thinkingChunk);
-            } else {
-              thinkingText += thinkingChunk;
-              onThinkingChunk?.(thinkingChunk);
-            }
-          }
           if (chunk) {
-            if (usePresetStore.getState().activePreset) {
-              if (insideNativeThinking) {
-                const suffix = '\n</think>\n\n';
-                fullText += suffix;
-                onChunk(suffix);
-                insideNativeThinking = false;
-              }
-              fullText += chunk;
-              onChunk(chunk);
-            } else {
-              thinkParser.process(chunk, (text) => {
-                fullText += text;
-                onChunk(text);
-              }, (thinkText) => {
-                thinkingText += thinkText;
-                onThinkingChunk?.(thinkText);
-              });
-            }
+            fullText += chunk;
+            onChunk(chunk);
           }
         } catch {
           // Skip malformed JSON chunks
@@ -487,32 +340,17 @@ async function parseSSEStream(
       }
     }
   } finally {
-    if (usePresetStore.getState().activePreset) {
-      if (insideNativeThinking) {
-        const suffix = '\n</think>\n\n';
-        fullText += suffix;
-        onChunk(suffix);
-      }
-    } else {
-      thinkParser.flush((text) => {
-        fullText += text;
-        onChunk(text);
-      }, (thinkText) => {
-        thinkingText += thinkText;
-        onThinkingChunk?.(thinkText);
-      });
-    }
     reader.releaseLock();
   }
 
   console.log(
-    `[SSE] Kết thúc stream — nội dung: ${fullText.length} ký tự, suy nghĩ: ${thinkingText.length} ký tự, finishReason: ${finishReason ?? 'không rõ'}`
+    `[SSE] Kết thúc stream — nội dung: ${fullText.length} ký tự, finishReason: ${finishReason ?? 'không rõ'}`
   );
   if (!fullText.trim() && /MAX_TOKENS|length/i.test(finishReason ?? '')) {
-    console.warn('[SSE] Model dừng vì hết token khi CHƯA viết nội dung — tăng Max Tokens hoặc giảm Thinking Budget.');
+    console.warn('[SSE] Model dừng vì hết token khi CHƯA viết nội dung — tăng Max Tokens.');
   }
 
-  return { fullText, thinkingText };
+  return { fullText };
 }
 
 /** Determine if an error is retryable */
@@ -567,11 +405,10 @@ export async function testConnection(profile: ConnectionProfile): Promise<{ ok: 
     const url = buildChatUrl(profile, false);
     const headers = buildHeaders(profile);
     const body = buildBody(profile, [{ role: 'user', content: 'ping' }]) as Record<string, any>;
-    // Ping tối giản: bỏ thinking (budget lớn hơn max_tokens sẽ bị API từ chối)
-    delete body.thinking;
+    // Ping tối giản
     if (body.generationConfig) {
       body.generationConfig.maxOutputTokens = 16;
-      delete body.generationConfig.thinkingConfig;
+
     } else {
       body.max_tokens = 16;
     }
@@ -661,14 +498,14 @@ export async function sendChat(
           idleTimer = setTimeout(() => controller.abort(), idleLimit);
         };
         try {
-          const { fullText, thinkingText } = await parseSSEStream(response, profile.provider, (chunk) => {
+          const { fullText } = await parseSSEStream(response, profile.provider, (chunk) => {
             options.onChunk?.(chunk);
-          }, options.signal, options.onThinkingChunk, resetIdle);
+          }, options.signal, resetIdle);
           // Người chơi đã hủy — KHÔNG commit lượt dở dang qua onDone
           if (options.signal?.aborted) return fullText;
           // Lỗi trong onDone (xử lý sau stream) không được kích hoạt retry gửi lại
           try {
-            options.onDone?.(fullText, thinkingText);
+            options.onDone?.(fullText);
           } catch (cbErr) {
             console.error('[sendChat] onDone handler error:', cbErr);
           }
@@ -681,15 +518,12 @@ export async function sendChat(
       // Non-streaming response
       const data = await response.json();
       let text = '';
-      let thinkingText = '';
       switch (profile.provider) {
         case 'anthropic': {
-          // Anthropic returns array of content blocks; separate thinking from text
+          // Anthropic returns array of content blocks
           const blocks = data.content || [];
           for (const block of blocks) {
-            if (block.type === 'thinking') {
-              thinkingText += block.thinking || '';
-            } else if (block.type === 'text') {
+            if (block.type === 'text') {
               text += block.text || '';
             }
           }
@@ -698,9 +532,7 @@ export async function sendChat(
         case 'google': {
           const parts = data.candidates?.[0]?.content?.parts || [];
           for (const part of parts) {
-            if (part.thought && part.text) {
-              thinkingText += part.text;
-            } else if (part.text) {
+            if (part.text) {
               text += part.text;
             }
           }
@@ -709,35 +541,13 @@ export async function sendChat(
         default: {
           const msg = data.choices?.[0]?.message;
           text = msg?.content || '';
-          thinkingText = msg?.reasoning_content || msg?.reasoning || '';
           break;
-        }
-      }
-
-      // ────────────────────────────────────────────────────────
-      // Trích xuất thẻ <think> từ nội dung text (do Preset sinh ra)
-      // hoặc chuyển native thinking thành <think> nếu có Preset
-      // ────────────────────────────────────────────────────────
-      if (usePresetStore.getState().activePreset) {
-        if (thinkingText) {
-          text = `<think>\n${thinkingText}\n</think>\n\n${text}`;
-          thinkingText = '';
-        }
-      } else {
-        const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/i);
-        if (thinkMatch) {
-          // Nối thêm vào thinkingText nếu đã có sẵn từ native API
-          thinkingText = thinkingText 
-            ? thinkingText + '\n\n' + thinkMatch[1].trim()
-            : thinkMatch[1].trim();
-          // Xóa bỏ thẻ khỏi nội dung chính
-          text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
         }
       }
 
       if (options.signal?.aborted) return text;
       try {
-        options.onDone?.(text, thinkingText);
+        options.onDone?.(text);
       } catch (cbErr) {
         console.error('[sendChat] onDone handler error:', cbErr);
       }

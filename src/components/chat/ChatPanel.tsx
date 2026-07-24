@@ -61,8 +61,8 @@ function renderRegexedContent(text: string): string {
 
 export const ChatPanel: React.FC = () => {
   const {
-    messages, isStreaming, streamingText, streamingThinkingText, retryingAttempt, retryingMax,
-    addMessage, setStreaming, appendStreamText, appendStreamThinkingText, setRetrying,
+    messages, isStreaming, streamingText, retryingAttempt, retryingMax,
+    addMessage, setStreaming, appendStreamText, setRetrying,
     updateLastAssistantMessage, game,
     statData, processAIResponse, initStatData,
     pendingDecree, setPendingDecree,
@@ -70,13 +70,13 @@ export const ChatPanel: React.FC = () => {
     messages: s.messages,
     isStreaming: s.isStreaming,
     streamingText: s.streamingText,
-    streamingThinkingText: s.streamingThinkingText,
+
     retryingAttempt: s.retryingAttempt,
     retryingMax: s.retryingMax,
     addMessage: s.addMessage,
     setStreaming: s.setStreaming,
     appendStreamText: s.appendStreamText,
-    appendStreamThinkingText: s.appendStreamThinkingText,
+
     setRetrying: s.setRetrying,
     updateLastAssistantMessage: s.updateLastAssistantMessage,
     game: s.game,
@@ -190,20 +190,16 @@ export const ChatPanel: React.FC = () => {
           appendStreamText(chunk);
           scrollToBottom();
         },
-        onThinkingChunk: (chunk) => {
-          appendStreamThinkingText(chunk);
-          scrollToBottom();
-        },
-        onDone: (full, thinkingText) => {
+        onDone: (full) => {
           // ── Model chỉ trả về suy nghĩ, không có nội dung ──
           // (Lưu ý: Native thinking có thể đã được nhúng vào fullText qua thẻ <think>)
           const textWithoutThink = full.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
           if (!textWithoutThink) {
-            const hasThinking = thinkingText.trim() || full.match(/<think>[\s\S]*?<\/think>/i);
+            const hasThinking = full.match(/<think>[\s\S]*?<\/think>/i);
             const hint = hasThinking
-              ? '⚠️ Model chỉ suy nghĩ mà chưa viết nội dung — hãy tăng **Max Tokens** (Tham Số) cho lớn hơn Thinking Budget, hoặc giảm Thinking Budget, rồi thử lại.'
+              ? '⚠️ Model chỉ suy nghĩ mà chưa viết nội dung — hãy tăng **Max Tokens** (Tham Số) rồi thử lại.'
               : '⚠️ Model không trả về nội dung. Kiểm tra lại kết nối / model / Max Tokens rồi thử lại.';
-            updateLastAssistantMessage(hint, thinkingText || undefined);
+            updateLastAssistantMessage(hint);
             setStreaming(false);
             setRetrying(null);
             scrollToBottom();
@@ -280,20 +276,8 @@ export const ChatPanel: React.FC = () => {
 
           // ── Process AI response through MVU extractor ──
           // processAIResponse giờ LUÔN cập nhật message + tăng lượt (kể cả khi
-          // không có patch) — chỉ cần gắn thêm thinkingText nếu có.
+          // không có patch).
           const { cleanText } = processAIResponse(stripped);
-          if (thinkingText) {
-            const store = useChatStore.getState();
-            const msgs = [...store.messages];
-            for (let i = msgs.length - 1; i >= 0; i--) {
-              if (msgs[i].role === 'assistant') {
-                msgs[i] = { ...msgs[i], thinkingText };
-                break;
-              }
-            }
-            useChatStore.setState({ messages: msgs });
-            useChatStore.getState().saveToStorage();
-          }
 
           setStreaming(false);
           setRetrying(null);
@@ -349,8 +333,7 @@ export const ChatPanel: React.FC = () => {
       setStreaming(false);
       setRetrying(null);
     }
-  }, [path, game, addMessage, setStreaming, appendStreamText, appendStreamThinkingText,
-      updateLastAssistantMessage, setRetrying, scrollToBottom, processAIResponse]);
+  }, [path, game, addMessage, setStreaming, appendStreamText, updateLastAssistantMessage, setRetrying, scrollToBottom, processAIResponse]);
 
   // ── Nhận "Lời Tuyên Sáng Thế" từ Xưởng Sáng Thế ──
   useEffect(() => {
@@ -370,12 +353,11 @@ export const ChatPanel: React.FC = () => {
   const handleAbort = useCallback(() => {
     abortRef.current?.abort();
     const st = useChatStore.getState();
-    const thinkingSnap = st.streamingThinkingText || undefined;
     const text = st.streamingText;
     setStreaming(false);
     setRetrying(null);
     if (text) {
-      updateLastAssistantMessage(text + '\n\n[Gián đoạn]', thinkingSnap);
+      updateLastAssistantMessage(text + '\n\n[Gián đoạn]');
     } else {
       // Chưa có chữ nào — gỡ bong bóng assistant rỗng đang stream
       useChatStore.setState(s => {
@@ -552,13 +534,7 @@ export const ChatPanel: React.FC = () => {
                 </span>
                 {msg.streaming && isStreaming ? (
                   <>
-                    {!usePresetStore.getState().activePreset && streamingThinkingText && (
-                      <ThinkingBlock
-                        content={streamingThinkingText}
-                        isStreaming={true}
-                        accentColor={pathAccent}
-                      />
-                    )}
+
                     <div
                       className="chat-msg-text"
                       dangerouslySetInnerHTML={{ __html: renderRegexedContent(applyPresetRegexes(streamingText || '')) }}
@@ -566,24 +542,12 @@ export const ChatPanel: React.FC = () => {
                   </>
                 ) : segments ? (
                   <>
-                    {!usePresetStore.getState().activePreset && msg.thinkingText && (
-                      <ThinkingBlock
-                        content={msg.thinkingText}
-                        isStreaming={false}
-                        accentColor={pathAccent}
-                      />
-                    )}
+
                     <NarrativeSegments segments={segments} />
                   </>
                 ) : (
                   <>
-                    {!usePresetStore.getState().activePreset && msg.thinkingText && (
-                      <ThinkingBlock
-                        content={msg.thinkingText}
-                        isStreaming={false}
-                        accentColor={pathAccent}
-                      />
-                    )}
+
                     <div
                       className="chat-msg-text"
                       dangerouslySetInnerHTML={{ __html: msg.role === 'assistant' ? renderRegexedContent(msg.content) : renderMarkdown(msg.content) }}
@@ -673,57 +637,7 @@ export const ChatPanel: React.FC = () => {
     </div>
   );
 };
-/* ── Thinking Block ── */
-const ThinkingBlock: React.FC<{
-  content: string;
-  isStreaming: boolean;
-  accentColor: string;
-}> = ({ content, isStreaming, accentColor }) => {
-  const [isOpen, setIsOpen] = React.useState(isStreaming);
 
-  // Auto-open when streaming starts, close when done
-  React.useEffect(() => {
-    if (isStreaming) setIsOpen(true);
-  }, [isStreaming]);
-
-  const wordCount = content.split(/\s+/).filter(Boolean).length;
-
-  return (
-    <div className={`chat-thinking ${isStreaming ? 'chat-thinking--streaming' : ''}`}>
-      <button
-        className="chat-thinking-toggle"
-        onClick={() => setIsOpen(!isOpen)}
-        style={{ '--thinking-accent': accentColor } as React.CSSProperties}
-      >
-        <svg
-          className={`chat-thinking-icon ${isStreaming ? 'chat-thinking-icon--pulse' : ''}`}
-          width="14" height="14" viewBox="0 0 24 24"
-          fill="none" stroke={accentColor} strokeWidth="1.5"
-        >
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-          <path d="M12 6c-2.2 0-4 1.8-4 4 0 1.5.8 2.7 2 3.4V15h4v-1.6c1.2-.7 2-1.9 2-3.4 0-2.2-1.8-4-4-4z" />
-          <path d="M10 17h4M10 19h4" />
-        </svg>
-        <span className="chat-thinking-label">
-          {isStreaming ? 'Đang suy nghĩ...' : `Suy nghĩ (${wordCount} từ)`}
-        </span>
-        <svg
-          className={`chat-thinking-chevron ${isOpen ? 'chat-thinking-chevron--open' : ''}`}
-          width="12" height="12" viewBox="0 0 24 24"
-          fill="none" stroke="currentColor" strokeWidth="2"
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-      {isOpen && (
-        <div
-          className="chat-thinking-content"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-        />
-      )}
-    </div>
-  );
-};
 
 /* ── Enrich Status Indicator ── */
 const EnrichIndicator: React.FC = () => {
